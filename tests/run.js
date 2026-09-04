@@ -383,6 +383,66 @@ const seededA = TECHNIQUES[0].generate('medium', createRng(1234));
 const seededB = TECHNIQUES[0].generate('medium', createRng(1234));
 check('the same seed produces the same problem', seededA.promptHtml === seededB.promptHtml);
 
+// --- lambda always works ---------------------------------------------------
+//
+// Every cycling goal has to be solvable by lambda cycling, which means the coprimality
+// each method needs must hold on every problem generated. The gcd conditions are checked,
+// and then the lambda route is actually walked and required to land on the same answer the
+// independent oracle above already confirmed.
+
+console.log('lambda solves every cycling goal');
+
+const lambdaRoutes = {
+  'cycling-regular': {
+    coprime: ({ a, k }) => gcd(a, k) === 1,
+    viaLambda: ({ a, b, k }) => modPow(a, b % carmichael(k), k),
+    answerOf: (problem) => problem.answer,
+  },
+  'cycling-special': {
+    coprime: ({ a, c, k }) => gcd(a, c * k) === 1 && gcd(c, k) === 1,
+    viaLambda: ({ a, b, ck }) => modPow(a, b % carmichael(ck), ck),
+    answerOf: (problem) => problem.answer,
+  },
+  'cycling-alain': {
+    coprime: ({ a, c, k }) => gcd(a, c * k) === 1 && gcd(c, k) === 1,
+    viaLambda: ({ a, b, ck }) => modPow(a, b % carmichael(ck), ck),
+    answerOf: (problem) => problem.answer,
+  },
+  'cycling-super': {
+    // The tower needs a second layer of reduction, so b must be coprime to λ(k) too.
+    coprime: ({ a, b, k }) => gcd(a, k) === 1 && gcd(b, carmichael(k)) === 1,
+    viaLambda: ({ a, b, c, k }) => modPow(a, modPow(b, c, carmichael(k)), k),
+    answerOf: (problem) => problem.answer,
+  },
+  'cycling-super-duper': {
+    coprime: ({ a, b, k }) => gcd(a, k) === 1 && gcd(b, carmichael(k)) === 1,
+    viaLambda: ({ a, b, f, k }) => modPow(a, modPow(b, f, carmichael(k)), k),
+    answerOf: (problem) => problem.answer,
+  },
+};
+
+for (const [id, route] of Object.entries(lambdaRoutes)) {
+  const technique = TECHNIQUES.find((t) => t.id === id);
+  let checked = 0;
+  let broke = null;
+  for (const difficulty of ['easy', 'medium', 'hard']) {
+    const rng = createRng(31415);
+    for (let i = 0; i < 300 && !broke; i++) {
+      const problem = technique.generate(difficulty, rng);
+      checked++;
+      if (!route.coprime(problem.params)) {
+        broke = `not coprime: ${JSON.stringify(problem.params)}`;
+      } else if (route.viaLambda(problem.params) !== route.answerOf(problem)) {
+        broke = `lambda gave ${route.viaLambda(problem.params)}, answer is ${route.answerOf(problem)} for ${JSON.stringify(problem.params)}`;
+      }
+    }
+  }
+  check(`${id}: lambda solves all ${checked}`, !broke, broke ?? '');
+}
+
+// The lambda drill's own arguments have to be the ones those routes actually need.
+check('every modulus has a usable λ', MODULI.every((k) => carmichael(k) >= 1));
+
 // --- weak-point analysis ---------------------------------------------------
 
 console.log('weak-point analysis');

@@ -38,10 +38,11 @@ const SLOWEST = 3;
  *
  * This is the whole concentration dial. Best-of-many turns a session into one number
  * repeated, which is monotonous and lets everything else rot; best-of-few barely steers.
- * Best-of-3 puts a little over half the session on the weak spot while every other value
- * still comes up, so you drill the gap without forgetting the rest.
+ * Best-of-4 puts a little over half the session on the weak spot while every other value
+ * still comes up around a tenth of the time, so you drill the gap without forgetting the
+ * rest. Retune it if the generators' own spread changes — it is measured, not guessed.
  */
-const CANDIDATES = 3;
+const CANDIDATES = 4;
 
 export function tagKey(techniqueId, key) {
   return `${techniqueId}|${key}`;

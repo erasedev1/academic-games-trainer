@@ -57,6 +57,15 @@ Every generated goal is one you could actually be set:
 - **The modulus is always 6 through 11**, and a, c and the colour exponents are single
   digits, because that is what the cubes can build. `MODULI` and `DIGITS` in
   `js/techniques/shared.js` are the single source; every cycling drill reads from them.
+- **Every cycling goal is solvable by lambda cycling.** a and k are coprime in regular
+  cycling, a, c and k pairwise coprime in special and Alain, and in super and super duper
+  b is coprime to λ(k) as well so the inner power reduces too. A test walks the lambda
+  route on every generated problem and requires it to land on the same answer.
+- **The modulus is drawn evenly.** Coprimality leaves very different numbers of usable
+  bases per modulus — eight for 11, only one for 6 — so drawing a base and modulus together
+  and rejecting the rest would quietly make mod 11 twice as common as mod 6. The modulus is
+  picked first and the base second. Mod 11 does not appear on easy, because no single-digit
+  base has a cycle shorter than five there.
 - **Super cycling uses mod 7, 9, 10 and 11.** For 6 and 8, λ(k) = 2, so the inner power
   collapses to 1 every time and there is no second cycle to do.
 - **Alain cycling uses the twelve (c, k) pairs where λ(ck) ≥ 10** — anything smaller

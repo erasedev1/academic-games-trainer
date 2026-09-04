@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EQ Speed Trainer</title>
+<meta name="description" content="Speed drills for the cycling and number-of-factors techniques in the EQ manual.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>&#8801;</text></svg>">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="site-header">
+    <a class="brand" href="index.html">EQ Speed Trainer</a>
+    <nav>
+      <a href="index.html" aria-current="page">Drills</a>
+      <a href="reference.html">Reference</a>
+      <a href="stats.html">Stats</a>
+    </nav>
+  </header>
+
+  <p class="lede">
+    Timed practice for every technique in the EQ manual. Pick one or more techniques,
+    choose how you want to be tested, and go. Answers are graded instantly and every
+    solution is worked through step by step, the same way the manual does it.
+  </p>
+
+  <form id="launcher">
+    <div id="families"></div>
+
+    <h2 class="section-title">Session</h2>
+    <div class="card">
+      <div class="control-row">
+        <span class="control-label">Format</span>
+        <div class="segmented" id="mode" role="group" aria-label="Session format">
+          <button type="button" value="sprint">Sprint</button>
+          <button type="button" value="set">Fixed set</button>
+          <button type="button" value="endless">Endless</button>
+        </div>
+        <div class="segmented" id="limit" role="group" aria-label="Session length"></div>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Difficulty</span>
+        <div class="segmented" id="difficulty" role="group" aria-label="Difficulty">
+          <button type="button" value="easy">Easy</button>
+          <button type="button" value="medium">Medium</button>
+          <button type="button" value="hard">Hard</button>
+        </div>
+      </div>
+      <div class="control-row">
+        <button class="btn btn--primary" id="start" type="submit">Start drill</button>
+        <span class="answer-hint" id="selection-summary"></span>
+      </div>
+    </div>
+  </form>
+
+  <footer class="site-footer">
+    Built from the EQ Manual by Dante. Techniques are his; the drills, the derivations for
+    bases 8, 9 and 11, and any mistakes here are this site's.
+  </footer>
+</div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

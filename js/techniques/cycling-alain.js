@@ -40,7 +40,7 @@ export function generate(difficulty, rng) {
   return {
     promptHtml: modHtml(frac(pow(a, b), c), k),
     instruction: 'Evaluate',
-    answerHint: `numerator over ${c} (e.g. "${target}/${c}" or just "${target}")`,
+    answerHint: `the numerator over ${c} — "N/${c}", or just N`,
     canonicalText: `${target}/${c}`,
     answer: target,
     params: { a, b, c, k, ck, n, m },

@@ -56,6 +56,11 @@ export default {
   family: 'cycling',
   form: 'a<sup>b</sup> mod k',
   blurb: 'The recommended method: reduce the exponent mod λ(k) instead of writing out a cycle.',
+  // Reference only, not offered as its own drill: the goal it produces is indistinguishable
+  // from regular cycling — same a^b mod k — so picking between them is picking a method for
+  // a problem you cannot tell apart. Drill the method through the Lambda Function drill and
+  // through special, super and super duper cycling, which all reduce mod λ(k) to get started.
+  drillable: false,
   generate,
   reference: {
     overview:

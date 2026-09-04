@@ -18,7 +18,7 @@ It is a static site with **no build step and no dependencies** — open `index.h
 |---|---|
 | Regular Cycling | `a^b mod k`, by writing out the cycle |
 | Lambda Function | `λ(k)` on its own — the step that gates every fast method |
-| Lambda Cycling | `a^b mod k`, reducing the exponent mod λ(k) |
+| Lambda Cycling | `a^b mod k`, reducing the exponent mod λ(k) — reference only, see below |
 | Special Cycling | `(a^b)/c mod k`, via λ(ck) |
 | Super Cycling | `a^(b^c) mod k` |
 | Super Duper Cycling | `a^(b^c^d^e) mod k`, read as `a^(b^cde)` |
@@ -37,6 +37,13 @@ It is a static site with **no build step and no dependencies** — open `index.h
 
 Each has three difficulty levels, and every technique can be mixed with any other so you
 have to recognise which method applies before you can start solving.
+
+**Lambda cycling is documented but not drilled.** Its goals are `a^b mod k` — character for
+character what regular cycling produces — so offering both as drill options meant choosing a
+*method* for a problem you cannot tell apart on sight. The method itself is drilled directly
+by the Lambda Function drill, and used in every step of special, super and super duper
+cycling. Its reference entry and its generator both stay, so putting it back is a one-line
+change: drop `drillable: false` from `js/techniques/cycling-lambda.js`.
 
 ## Staying inside what the cubes can build
 

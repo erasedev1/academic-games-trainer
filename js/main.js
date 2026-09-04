@@ -1,6 +1,6 @@
 // Home page: pick techniques, pick a format, launch.
 
-import { FAMILIES, techniquesInFamily } from './techniques/index.js';
+import { drillsInFamily, FAMILIES, getDrill } from './techniques/index.js';
 import { getRecord, loadPreferences, loadStats, savePreferences } from './storage.js';
 import { formatSeconds, median } from './lib/format.js';
 
@@ -19,8 +19,10 @@ const LIMITS = {
 };
 
 const prefs = loadPreferences();
+// A saved preference can name a technique that is no longer drillable.
+const savedSelection = (prefs.selected ?? []).filter((id) => getDrill(id));
 const state = {
-  selected: new Set(prefs.selected?.length ? prefs.selected : ['cycling-regular']),
+  selected: new Set(savedSelection.length ? savedSelection : ['cycling-regular']),
   mode: prefs.mode ?? 'sprint',
   limit: prefs.limit ?? 60,
   difficulty: prefs.difficulty ?? 'medium',
@@ -48,7 +50,7 @@ function renderFamilies() {
     <h2 class="section-title">${family.name}</h2>
     <p class="section-blurb">${family.blurb}</p>
     <div class="technique-grid">
-      ${techniquesInFamily(family.id).map((technique) => `
+      ${drillsInFamily(family.id).map((technique) => `
         <button type="button" class="technique" data-id="${technique.id}"
                 aria-pressed="${state.selected.has(technique.id)}">
           <span class="technique-name">${technique.name}</span>

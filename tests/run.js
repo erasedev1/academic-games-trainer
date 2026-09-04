@@ -10,7 +10,7 @@ import {
 } from '../js/lib/math.js';
 import { parseAnswer } from '../js/lib/format.js';
 import { createRng } from '../js/lib/rng.js';
-import { TECHNIQUES } from '../js/techniques/index.js';
+import { DRILLS, getDrill, TECHNIQUES } from '../js/techniques/index.js';
 import { BASES, exponentFor } from '../js/techniques/eg-bases.js';
 import { DIGITS, MODULI } from '../js/techniques/shared.js';
 import { SUPER_MODULI } from '../js/techniques/cycling-super.js';
@@ -194,6 +194,19 @@ for (let a = 1; a <= 40; a++) {
 }
 
 // --- what Equations can actually put on the board --------------------------
+
+console.log('the drill roster');
+check('lambda cycling is documented but not drillable', TECHNIQUES.some((t) => t.id === 'cycling-lambda'));
+check('lambda cycling cannot be started as a drill', getDrill('cycling-lambda') === null);
+check('nothing else was removed from the picker',
+  TECHNIQUES.length - DRILLS.length === 1, `${TECHNIQUES.length - DRILLS.length} removed`);
+check('every drill is reachable by id', DRILLS.every((t) => getDrill(t.id) === t));
+// A reference-only technique still needs its reference content, and its generator is still
+// tested below — so re-enabling it is a one-line change, not a repair job.
+for (const technique of TECHNIQUES) {
+  check(`${technique.id} has reference content`,
+    Boolean(technique.reference?.overview && technique.reference?.method?.length && technique.reference?.examples?.length));
+}
 
 console.log('realistic parameter pools');
 check('moduli are exactly 6 through 11', MODULI.join(',') === '6,7,8,9,10,11', MODULI.join(','));

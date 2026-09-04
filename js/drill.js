@@ -1,6 +1,6 @@
 // The session runner: one generic loop over whichever techniques were selected.
 
-import { getTechnique, TECHNIQUES } from './techniques/index.js';
+import { DRILLS, getDrill } from './techniques/index.js';
 import { createRng, randomSeed } from './lib/rng.js';
 import { escapeHtml, formatClock, formatSeconds, median } from './lib/format.js';
 import { recordAttempt, recordSession } from './storage.js';
@@ -11,7 +11,7 @@ const params = new URLSearchParams(window.location.search);
 const config = {
   techniques: (params.get('t') ?? '')
     .split(',')
-    .map((id) => getTechnique(id.trim()))
+    .map((id) => getDrill(id.trim()))
     .filter(Boolean),
   mode: ['sprint', 'set', 'endless'].includes(params.get('mode')) ? params.get('mode') : 'sprint',
   difficulty: ['easy', 'medium', 'hard'].includes(params.get('d')) ? params.get('d') : 'medium',
@@ -365,5 +365,5 @@ document.addEventListener('keydown', (event) => {
 
 // Sanity check for a hand-edited URL listing an unknown technique.
 if (params.get('t') && config.techniques.length < params.get('t').split(',').length) {
-  console.warn('Some technique ids in the URL were not recognised. Known ids:', TECHNIQUES.map((t) => t.id));
+  console.warn('Some technique ids in the URL are not drillable. Known ids:', DRILLS.map((t) => t.id));
 }

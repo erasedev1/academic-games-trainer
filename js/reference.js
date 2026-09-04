@@ -39,8 +39,12 @@ function renderTechnique(technique) {
         </div>`).join('')}
 
       <div class="ref-actions">
-        <a class="btn btn--small" href="drill.html?t=${technique.id}&amp;mode=endless&amp;d=easy">Drill it, no clock</a>
-        <a class="btn btn--small" href="drill.html?t=${technique.id}&amp;mode=sprint&amp;d=medium&amp;limit=60">60-second sprint</a>
+        ${technique.drillable === false
+          ? `<p class="answer-hint" style="margin:0">Not a drill of its own &mdash; its goals look exactly like regular cycling.
+             You practise this method in the <a href="drill.html?t=lambda-value&amp;mode=sprint&amp;d=medium&amp;limit=60">Lambda Function</a>
+             drill and inside special, super and super duper cycling.</p>`
+          : `<a class="btn btn--small" href="drill.html?t=${technique.id}&amp;mode=endless&amp;d=easy">Drill it, no clock</a>
+             <a class="btn btn--small" href="drill.html?t=${technique.id}&amp;mode=sprint&amp;d=medium&amp;limit=60">60-second sprint</a>`}
       </div>
     </section>`;
 }

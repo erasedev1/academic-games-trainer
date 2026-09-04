@@ -35,12 +35,29 @@ export const FAMILIES = [
   { id: 'factors', name: 'Number of Factors + PotB', blurb: 'x(n) and the Ex-Girlfriend formulas that build any target out of a handful of cubes.' },
 ];
 
+/**
+ * What can actually be drilled. A technique marked `drillable: false` still appears in the
+ * reference — the method is real and other techniques build on it — but is not offered as a
+ * drill of its own.
+ */
+export const DRILLS = TECHNIQUES.filter((t) => t.drillable !== false);
+
 export const BY_ID = new Map(TECHNIQUES.map((t) => [t.id, t]));
 
 export function getTechnique(id) {
   return BY_ID.get(id) ?? null;
 }
 
+/** Resolves an id only if it is something you can start a session on. */
+export function getDrill(id) {
+  const technique = BY_ID.get(id);
+  return technique && technique.drillable !== false ? technique : null;
+}
+
 export function techniquesInFamily(familyId) {
   return TECHNIQUES.filter((t) => t.family === familyId);
+}
+
+export function drillsInFamily(familyId) {
+  return DRILLS.filter((t) => t.family === familyId);
 }

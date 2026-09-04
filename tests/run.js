@@ -15,6 +15,10 @@ import { BASES, exponentFor } from '../js/techniques/eg-bases.js';
 import { DIGITS, MODULI } from '../js/techniques/shared.js';
 import { SUPER_MODULI } from '../js/techniques/cycling-super.js';
 import { VIABLE_PAIRS } from '../js/techniques/cycling-alain.js';
+import {
+  createWeakPicker, focusTechniques, hasEnoughData, MIN_SAMPLES,
+  focusScores, scoreRecord, tagKey, techniqueScores, techniqueSpots, weakList, weakSpots,
+} from '../js/weakness.js';
 
 let passed = 0;
 const failures = [];
@@ -360,6 +364,170 @@ for (const technique of TECHNIQUES) {
 const seededA = TECHNIQUES[0].generate('medium', createRng(1234));
 const seededB = TECHNIQUES[0].generate('medium', createRng(1234));
 check('the same seed produces the same problem', seededA.promptHtml === seededB.promptHtml);
+
+// --- weak-point analysis ---------------------------------------------------
+
+console.log('weak-point analysis');
+
+// Tag keys are concatenated with the technique id using "|", so a key containing one
+// would silently merge two different weaknesses into a single record.
+for (const technique of TECHNIQUES) {
+  const rng = createRng(4242);
+  const keys = new Set();
+  for (let i = 0; i < 120; i++) {
+    for (const difficulty of ['easy', 'medium', 'hard']) {
+      const problem = technique.generate(difficulty, rng);
+      if (!problem.tags?.length) {
+        failures.push(`${technique.id} generated a problem with no tags`);
+        break;
+      }
+      for (const { key, label } of problem.tags) {
+        if (typeof key !== 'string' || key.includes('|') || !key) failures.push(`${technique.id} has a bad tag key ${key}`);
+        if (typeof label !== 'string' || !label) failures.push(`${technique.id} tag ${key} has no label`);
+        keys.add(key);
+      }
+    }
+  }
+  // Tags only become useful once answered a few times, so the set has to stay small
+  // enough that ordinary use actually fills it in.
+  check(`${technique.id} keeps its tag count workable`, keys.size <= 60, `${keys.size} tags`);
+}
+
+const fastAndRight = { attempts: 20, correct: 20, times: Array(20).fill(2000) };
+const missedOften = { attempts: 20, correct: 8, times: Array(8).fill(2000) };
+const slowButRight = { attempts: 20, correct: 20, times: Array(20).fill(8000) };
+const oneMissOfOne = { attempts: 1, correct: 0, times: [] };
+
+check('a fast, accurate record scores low', scoreRecord(fastAndRight, 2000) < 0.15);
+check('missing often outranks an untested tag', scoreRecord(missedOften, 2000) > scoreRecord(undefined, 2000));
+// Slow-but-accurate is a real weakness, but missing most of them is a worse one.
+check('slow but accurate scores in between',
+  scoreRecord(slowButRight, 2000) > scoreRecord(fastAndRight, 2000) &&
+  scoreRecord(slowButRight, 2000) < scoreRecord(missedOften, 2000));
+check('one miss out of one is damped, not damning', scoreRecord(oneMissOfOne, 2000) < scoreRecord(missedOften, 2000));
+check('an unseen record sits mid-pack', scoreRecord(undefined, 2000) > scoreRecord(fastAndRight, 2000));
+check('speed is judged against your own pace, not the clock',
+  Math.abs(scoreRecord(slowButRight, 8000) - scoreRecord(fastAndRight, 2000)) < 1e-9);
+
+/** A synthetic history: solid at mod 7, shaky at mod 11. */
+function historyWith(weakTag) {
+  return {
+    version: 1,
+    techniques: {
+      'cycling-regular:medium': { attempts: 40, correct: 36, times: Array(20).fill(3000), best: 2000, streak: 0, longestStreak: 5 },
+    },
+    tags: {
+      [tagKey('cycling-regular', 'k:7')]: { label: 'mod 7', attempts: 20, correct: 20, times: Array(20).fill(2200), best: 2000 },
+      [tagKey('cycling-regular', weakTag)]: { label: 'mod 11', attempts: 20, correct: 11, times: Array(11).fill(7000), best: 6000 },
+      [tagKey('cycling-regular', 'k:9')]: { label: 'mod 9', attempts: 2, correct: 1, times: [3000], best: 3000 },
+    },
+    sessions: [],
+  };
+}
+
+const history = historyWith('k:11');
+const spots = weakSpots(history);
+equal('the weakest tag ranks first', spots[0].label, 'mod 11');
+check('an under-measured tag is left out', !spots.some((s) => s.label === 'mod 9'), `${spots.map((s) => s.label)}`);
+// mod 7 is measured, accurate and on pace, so it is not a weak spot at all.
+equal('a solid tag is not listed as a weakness', spots.length, 1);
+check('and nothing solid sneaks in', spots.every((spot) => spot.score >= 0.15));
+check('the weak spot carries its slowdown', spots[0].slowdown > 2);
+check('hasEnoughData sees the history', hasEnoughData(history));
+check('hasEnoughData rejects an empty history',
+  !hasEnoughData({ version: 1, techniques: {}, tags: {}, sessions: [] }));
+
+// A first session spreads a handful of answers over many tags, so none of them is
+// measurable yet. The panel has to fall back to whole techniques rather than go blank.
+{
+  const firstSession = {
+    version: 1,
+    techniques: {
+      // Two timed solves out of eight attempts: not enough to call it a pace.
+      'cycling-regular:medium': { attempts: 8, correct: 2, times: [4000, 5000], best: 4000, streak: 0, longestStreak: 1 },
+    },
+    tags: {
+      [tagKey('cycling-regular', 'k:7')]: { label: 'mod 7', attempts: 2, correct: 1, times: [4000] },
+      [tagKey('cycling-regular', 'k:11')]: { label: 'mod 11', attempts: 2, correct: 0, times: [] },
+    },
+    sessions: [],
+  };
+  equal('no tag is measurable after one short session', weakSpots(firstSession).length, 0);
+  check('but the technique itself is', techniqueSpots(firstSession).length > 0);
+  const list = weakList(firstSession);
+  check('so the panel still has something to show', list.length > 0);
+  equal('and it is technique-level', list[0].kind, 'technique');
+  equal('naming the technique', list[0].label, 'Regular Cycling');
+  check('a pace is not claimed off one or two solves', list[0].slowdown === null);
+  check('hasEnoughData accepts a first session', hasEnoughData(firstSession));
+}
+
+// Being good at everything must produce an empty list rather than a bogus ranking.
+{
+  const strong = {
+    version: 1,
+    techniques: { 'cycling-regular:medium': { attempts: 40, correct: 40, times: Array(20).fill(2000), best: 1800, streak: 40, longestStreak: 40 } },
+    tags: Object.fromEntries([6, 7, 8, 9, 10, 11].map((k) => [
+      tagKey('cycling-regular', `k:${k}`),
+      { label: `mod ${k}`, attempts: 10, correct: 10, times: Array(10).fill(2000), best: 1800 },
+    ])),
+    sessions: [],
+  };
+  equal('a strong record yields no weak spots', weakList(strong).length, 0);
+  check('and the panel stays hidden', !hasEnoughData(strong));
+}
+
+// Once tags are measured they lead, and the technique they belong to is not repeated.
+{
+  const list = weakList(history, { limit: 5 });
+  equal('measured tags lead the list', list[0].kind, 'tag');
+  check('the tag technique is not also listed whole',
+    !list.some((spot) => spot.kind === 'technique' && spot.techniqueId === 'cycling-regular'));
+}
+
+// The picker has to actually steer. With mod 11 planted as the weakness, it should show
+// up far more than the 1-in-6 an even draw would give.
+{
+  const technique = TECHNIQUES.find((t) => t.id === 'cycling-regular');
+  const picker = createWeakPicker(history, [technique]);
+  const rng = createRng(2718);
+  let weak = 0;
+  const runs = 300;
+  for (let i = 0; i < runs; i++) {
+    if (picker.pickProblem(technique, 'medium', rng).params.k === 11) weak++;
+  }
+  // Both ends of this matter. Too low and the session is not really targeted; too high
+  // and it is the same problem twenty times while everything else goes stale.
+  const share = weak / runs;
+  check('the picker steers at the weak modulus', share > 0.4, `only ${Math.round(share * 100)}% were mod 11`);
+  check('but does not drill it to the exclusion of everything else',
+    share < 0.8, `${Math.round(share * 100)}% were mod 11`);
+
+  // And an even draw really is about 1 in 6, so the bias above is the picker's doing.
+  const evenRng = createRng(2718);
+  let even = 0;
+  for (let i = 0; i < runs; i++) if (technique.generate('medium', evenRng).params.k === 11) even++;
+  check('an unsteered draw is near even', even / runs < 0.3, `${Math.round((even / runs) * 100)}% were mod 11`);
+}
+
+// A technique you are broadly good at but have one terrible number in must still be
+// picked — this is exactly the case plain technique-level scoring misses.
+{
+  const plain = techniqueScores(history);
+  const focus = focusScores(history);
+  check('plain technique scoring calls regular cycling strong', plain.get('cycling-regular') < 0.2);
+  check('focus scoring inherits its worst measured tag', focus.get('cycling-regular') > 0.5);
+  check('so it outranks a technique never tried', focus.get('cycling-regular') > focus.get('eg-first'));
+  equal('and leads the focus list', focusTechniques(history, { count: 3 })[0].id, 'cycling-regular');
+}
+
+// A technique never attempted should still be offered, so a weak session covers new ground.
+{
+  const scores = techniqueScores(history);
+  check('an untried technique outranks a strong one',
+    scores.get('eg-first') > scores.get('cycling-regular'));
+  equal('focus returns the requested number of techniques', focusTechniques(history, { count: 3 }).length, 3);
+}
 
 // --- report ----------------------------------------------------------------
 

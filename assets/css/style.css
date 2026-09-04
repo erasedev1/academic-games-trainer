@@ -147,6 +147,46 @@ a:hover { text-decoration-thickness: 2px; }
 }
 .technique-stat { font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 
+/* --- weak points --------------------------------------------------------- */
+
+.weak-card { margin-bottom: 8px; }
+.weak-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 2px;
+}
+.weak-head .btn { margin-left: auto; }
+.weak-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+.weak-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 12px;
+  padding: 7px 0;
+  border-top: 1px solid var(--border);
+}
+.weak-label { font-weight: 600; }
+.weak-tech { font-size: 0.85rem; color: var(--muted); }
+.weak-why {
+  font-size: 0.78rem;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+.weak-num {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
 /* --- controls ------------------------------------------------------------ */
 
 .control-row {

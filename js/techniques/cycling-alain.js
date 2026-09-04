@@ -2,7 +2,7 @@
 
 import { carmichael, crt, gcd, modPow } from '../lib/math.js';
 import { frac, mod as modHtml, pow } from '../lib/format.js';
-import { byDifficulty, congruentNumeratorCheck, DIGITS, MODULI } from './shared.js';
+import { byDifficulty, congruentNumeratorCheck, DIGITS, MODULI, tag } from './shared.js';
 
 /**
  * Alain cycling is the special-cycling case that blows up, which needs room for the
@@ -45,6 +45,7 @@ export function generate(difficulty, rng) {
     canonicalText: `${target}/${c}`,
     answer: target,
     params: { a, b, c, k, ck },
+    tags: [tag(`k:${k}`, `mod ${k}`), tag(`c:${c}`, `divisor ${c}`), tag(`ck:${ck}`, `CRT over ${ck}`)],
     check: congruentNumeratorCheck({ target, modulus: ck, den: c }),
   };
 }

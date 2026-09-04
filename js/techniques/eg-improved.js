@@ -1,7 +1,7 @@
 // Ex-Girlfriend Improved — √(x(10^(b−1))) = b, for any integer b.
 
 import { pow, sqrtOf, xOf } from '../lib/format.js';
-import { byDifficulty, intCheck } from './shared.js';
+import { byDifficulty, intCheck, sizeTag, tag } from './shared.js';
 
 const CONFIG = {
   easy: { b: [2, 15] },
@@ -22,6 +22,7 @@ export function generate(difficulty, rng) {
       canonicalText: String(b),
       answer: b,
       params: { b, n, direction: 'forward' },
+      tags: [tag('dir:forward', 'reading the formula forwards'), sizeTag(b)],
       check: intCheck(b),
     };
   }
@@ -33,6 +34,7 @@ export function generate(difficulty, rng) {
     canonicalText: String(n),
     answer: n,
     params: { b, n, direction: 'inverse' },
+    tags: [tag('dir:inverse', 'solving for the exponent'), sizeTag(b)],
     check: intCheck(n),
   };
 }

@@ -9,7 +9,7 @@
 // reaches perfect squares.
 
 import { pow, xOf } from '../lib/format.js';
-import { byDifficulty, intOrNoneCheck } from './shared.js';
+import { byDifficulty, intOrNoneCheck, tag } from './shared.js';
 
 export const BASES = {
   8: { multiplier: 3, valid: (a) => a % 3 === 1 },
@@ -50,6 +50,7 @@ export function generate(difficulty, rng) {
     canonicalText: answer === null ? 'none' : String(answer),
     answer,
     params: { base, a },
+    tags: [tag(`base:${base}`, `base ${base}`), tag(answer === null ? 'reach:no' : 'reach:yes', answer === null ? 'spotting an unreachable target' : 'reachable targets')],
     check: intOrNoneCheck(answer),
   };
 }

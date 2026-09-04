@@ -2,7 +2,7 @@
 
 import { carmichael, gcd, modPow } from '../lib/math.js';
 import { frac, mod as modHtml, pow } from '../lib/format.js';
-import { byDifficulty, congruentNumeratorCheck, DIGITS, MODULI } from './shared.js';
+import { byDifficulty, congruentNumeratorCheck, DIGITS, MODULI, tag } from './shared.js';
 
 const CONFIG = {
   easy: { c: [2, 3, 5, 7], r: [2, 3], reps: [1, 3] },
@@ -35,6 +35,7 @@ export function generate(difficulty, rng) {
     canonicalText: `${target}/${c}`,
     answer: target,
     params: { a, b, c, k, ck },
+    tags: [tag(`k:${k}`, `mod ${k}`), tag(`c:${c}`, `divisor ${c}`), tag(`ck:${ck}`, `\u03bb(${ck})`)],
     check: congruentNumeratorCheck({ target, modulus: ck, den: c }),
   };
 }

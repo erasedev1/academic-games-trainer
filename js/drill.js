@@ -3,21 +3,31 @@
 import { getTechnique, TECHNIQUES } from './techniques/index.js';
 import { createRng, randomSeed } from './lib/rng.js';
 import { escapeHtml, formatClock, formatSeconds, median } from './lib/format.js';
-import { recordAttempt, recordSession } from './storage.js';
+import { loadStats, recordAttempt, recordSession } from './storage.js';
+import { createWeakPicker, focusTechniques } from './weakness.js';
 
 const root = document.getElementById('drill');
 const params = new URLSearchParams(window.location.search);
 
+// focus=weak steers the whole session at your shakiest material instead of drawing evenly.
+const weakFocus = params.get('focus') === 'weak';
+
+const chosen = (params.get('t') ?? '')
+  .split(',')
+  .map((id) => getTechnique(id.trim()))
+  .filter(Boolean);
+
 const config = {
-  techniques: (params.get('t') ?? '')
-    .split(',')
-    .map((id) => getTechnique(id.trim()))
-    .filter(Boolean),
+  // With focus=weak and no explicit list, the session picks the techniques itself. Given a
+  // list, it targets the weak points inside those instead.
+  techniques: weakFocus && !chosen.length ? focusTechniques(loadStats()) : chosen,
   mode: ['sprint', 'set', 'endless'].includes(params.get('mode')) ? params.get('mode') : 'sprint',
   difficulty: ['easy', 'medium', 'hard'].includes(params.get('d')) ? params.get('d') : 'medium',
   limit: Number(params.get('limit')) || (params.get('mode') === 'set' ? 10 : 60),
   seed: Number(params.get('seed')) || randomSeed(),
 };
+
+const picker = weakFocus ? createWeakPicker(loadStats(), config.techniques) : null;
 
 const state = {
   rng: createRng(config.seed),
@@ -60,8 +70,11 @@ function remainingMs() {
 }
 
 function nextProblem() {
-  const technique = state.rng.pick(config.techniques);
-  state.problem = { ...technique.generate(config.difficulty, state.rng), technique };
+  const technique = picker ? picker.pickTechnique(state.rng) : state.rng.pick(config.techniques);
+  const problem = picker
+    ? picker.pickProblem(technique, config.difficulty, state.rng)
+    : technique.generate(config.difficulty, state.rng);
+  state.problem = { ...problem, technique };
   state.phase = 'answering';
   state.startedAt = Date.now();
 }
@@ -120,6 +133,7 @@ function submit(raw) {
     difficulty: config.difficulty,
     correct: result.correct,
     elapsedMs,
+    tags: state.problem.tags ?? [],
   });
   render({ feedback: { ...result, elapsedMs, given: text } });
 
@@ -143,6 +157,7 @@ function finish() {
   const times = state.results.filter((r) => r.correct).map((r) => r.elapsedMs);
   recordSession({
     at: Date.now(),
+    focus: weakFocus ? 'weak' : null,
     mode: config.mode,
     difficulty: config.difficulty,
     techniques: config.techniques.map((t) => t.id),
@@ -248,7 +263,7 @@ function renderSummary() {
   root.innerHTML = `
     <h2 class="section-title">Session complete</h2>
     <p class="section-blurb">
-      ${escapeHtml(config.techniques.map((t) => t.name).join(', '))} ·
+      ${weakFocus ? 'Weak points' : escapeHtml(config.techniques.map((t) => t.name).join(', '))} ·
       ${escapeHtml(config.difficulty)} ·
       ${config.mode === 'sprint' ? `${config.limit}s sprint` : config.mode === 'set' ? `set of ${config.limit}` : 'endless'}
     </p>
@@ -301,12 +316,12 @@ function renderSummary() {
     </div>`;
 
   root.querySelector('[data-action="again"]').addEventListener('click', () => {
-    window.location.href = `drill.html?${new URLSearchParams({
-      t: config.techniques.map((t) => t.id).join(','),
-      mode: config.mode,
-      d: config.difficulty,
-      limit: String(config.limit),
-    })}`;
+    const again = new URLSearchParams({ mode: config.mode, d: config.difficulty, limit: String(config.limit) });
+    // Re-running a weak-point session re-reads your stats, so it retargets rather than
+    // repeating the same technique list.
+    if (weakFocus) again.set('focus', 'weak');
+    else again.set('t', config.techniques.map((t) => t.id).join(','));
+    window.location.href = `drill.html?${again}`;
   });
   root.querySelector('[data-action="retry-missed"]')?.addEventListener('click', () => {
     const ids = [...new Set(missed.map((r) => r.techniqueId))];

@@ -1,7 +1,7 @@
 // First Ex-Girlfriend — x(10^(√a − 1)) = a, for any perfect square a.
 
 import { pow, xOf } from '../lib/format.js';
-import { byDifficulty, intCheck } from './shared.js';
+import { byDifficulty, intCheck, sizeTag, tag } from './shared.js';
 
 const CONFIG = {
   easy: { root: [2, 10] },
@@ -23,6 +23,7 @@ export function generate(difficulty, rng) {
       canonicalText: String(a),
       answer: a,
       params: { n, a, direction: 'forward' },
+      tags: [tag('dir:forward', 'reading the formula forwards'), sizeTag(a)],
       check: intCheck(a),
     };
   }
@@ -34,6 +35,7 @@ export function generate(difficulty, rng) {
     canonicalText: String(n),
     answer: n,
     params: { n, a, direction: 'inverse' },
+    tags: [tag('dir:inverse', 'solving for the exponent'), sizeTag(a)],
     check: intCheck(n),
   };
 }

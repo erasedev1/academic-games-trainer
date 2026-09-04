@@ -1,7 +1,7 @@
 // Second Ex-Girlfriend — xx(10^(p^((b−1)/2) − 1)) = b, for any odd b.
 
 import { pow, xOf } from '../lib/format.js';
-import { byDifficulty, intCheck } from './shared.js';
+import { byDifficulty, intCheck, sizeTag, tag } from './shared.js';
 
 const CONFIG = {
   easy: { b: [3, 25] },
@@ -22,6 +22,7 @@ export function generate(difficulty, rng) {
       canonicalText: String(b),
       answer: b,
       params: { b, m, direction: 'forward' },
+      tags: [tag('dir:forward', 'reading the formula forwards'), sizeTag(b)],
       check: intCheck(b),
     };
   }
@@ -33,6 +34,7 @@ export function generate(difficulty, rng) {
     canonicalText: String(m),
     answer: m,
     params: { b, m, direction: 'inverse' },
+    tags: [tag('dir:inverse', 'solving for the exponent'), sizeTag(b)],
     check: intCheck(m),
   };
 }

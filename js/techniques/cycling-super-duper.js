@@ -1,7 +1,7 @@
 // Super Duper Cycling — a^(b^c^d^e) mod k, read as a^(b^(c·d·e)).
 
 import { mod as modHtml, tower } from '../lib/format.js';
-import { byDifficulty, DIGITS, intCheck } from './shared.js';
+import { byDifficulty, DIGITS, intCheck, tag } from './shared.js';
 import { pickBase, pickExponent, towerAnswer, TRIVIAL_SHARE } from './cycling-super.js';
 
 // c, d and e are colour exponents, so they are single digits like everything else.
@@ -45,6 +45,7 @@ export function generate(difficulty, rng) {
     canonicalText: String(answer),
     answer,
     params: { a, b, c, d, e, f, k },
+    tags: [tag(`k:${k}`, `mod ${k}`), tag(`b:${b}`, `tower base ${b}`)],
     check: intCheck(answer),
   };
 }

@@ -2,7 +2,7 @@
 
 import { carmichael, gcd } from '../lib/math.js';
 import { lambda as lambdaHtml } from '../lib/format.js';
-import { byDifficulty, DIGITS, intCheck, MODULI } from './shared.js';
+import { byDifficulty, DIGITS, intCheck, MODULI, tag } from './shared.js';
 
 /**
  * The arguments worth drilling are the ones real goals hand you: a bare modulus for
@@ -28,6 +28,7 @@ export function generate(difficulty, rng) {
     canonicalText: String(answer),
     answer,
     params: { k },
+    tags: [tag(`arg:${k}`, `\u03bb(${k})`)],
     check: intCheck(answer),
   };
 }

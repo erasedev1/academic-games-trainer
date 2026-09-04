@@ -2,7 +2,7 @@
 
 const KEY = 'agt:v1';
 
-const EMPTY = { version: 1, techniques: {}, sessions: [] };
+const EMPTY = { version: 1, techniques: {}, tags: {}, sessions: [] };
 
 /** localStorage throws in private mode and some embedded views — never let that break a drill. */
 function readRaw() {
@@ -42,20 +42,38 @@ export function getRecord(data, techniqueId, difficulty) {
   return data.techniques[recordKey(techniqueId, difficulty)] ?? blankRecord();
 }
 
-/** Folds one answered problem into the stats. */
-export function recordAttempt({ techniqueId, difficulty, correct, elapsedMs }) {
+/** Keeps the last N solve times — enough for a stable median without unbounded growth. */
+function fold(record, correct, elapsedMs, keep) {
+  record.attempts++;
+  if (correct) {
+    record.correct++;
+    record.times = [...record.times, elapsedMs].slice(-keep);
+    record.best = record.best === null ? elapsedMs : Math.min(record.best, elapsedMs);
+  }
+  return record;
+}
+
+/**
+ * Folds one answered problem into the stats, against both its technique and each of the
+ * specific things it tested — the tags are what the weak-point analysis reads.
+ */
+export function recordAttempt({ techniqueId, difficulty, correct, elapsedMs, tags = [] }) {
   const data = readRaw();
   const key = recordKey(techniqueId, difficulty);
   const record = data.techniques[key] ?? blankRecord();
 
-  record.attempts++;
+  for (const { key: tagName, label } of tags) {
+    const tagRecord = data.tags[`${techniqueId}|${tagName}`] ?? blankRecord();
+    // The label is stored alongside so the stats page can name a tag without having to
+    // regenerate a problem that carries it.
+    tagRecord.label = label;
+    data.tags[`${techniqueId}|${tagName}`] = fold(tagRecord, correct, elapsedMs, 20);
+  }
+
+  fold(record, correct, elapsedMs, 200);
   if (correct) {
-    record.correct++;
     record.streak++;
     record.longestStreak = Math.max(record.longestStreak, record.streak);
-    // Keep the last 200 times — enough for a stable median without unbounded growth.
-    record.times = [...record.times, elapsedMs].slice(-200);
-    record.best = record.best === null ? elapsedMs : Math.min(record.best, elapsedMs);
   } else {
     record.streak = 0;
   }

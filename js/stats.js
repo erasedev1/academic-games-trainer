@@ -3,6 +3,7 @@
 import { TECHNIQUES } from './techniques/index.js';
 import { clearStats, exportStats, importStats, loadStats } from './storage.js';
 import { escapeHtml, formatSeconds, median } from './lib/format.js';
+import { MIN_SAMPLES, weakReason, weakSpots } from './weakness.js';
 
 const root = document.getElementById('stats');
 const DIFFICULTIES = ['easy', 'medium', 'hard'];
@@ -77,6 +78,8 @@ function render() {
     </div>
     <p class="answer-hint">The speed bar is relative to your slowest technique, so shorter is better.</p>
 
+    ${weakSpotsSection(data)}
+
     <h2 class="section-title">Recent sessions</h2>
     ${sessions.length > 1 ? sessionChart(sessions) : '<p class="section-blurb">Finish a couple more sessions and a trend line will appear here.</p>'}
     <div class="card table-scroll" style="margin-top:14px">
@@ -111,7 +114,55 @@ function render() {
   wireDataButtons();
 }
 
+/** The specific numbers costing you the most, and how many are still being measured. */
+function weakSpotsSection(data) {
+  const spots = weakSpots(data, { limit: 12 });
+  const measuring = Object.values(data.tags ?? {})
+    .filter((record) => (record.attempts ?? 0) < MIN_SAMPLES).length;
+
+  if (!spots.length) {
+    const measured = Object.values(data.tags ?? {}).filter((r) => (r.attempts ?? 0) >= MIN_SAMPLES).length;
+    return `
+      <h2 class="section-title">Weak spots</h2>
+      <p class="section-blurb">
+        ${measured
+          ? `Nothing stands out — you are accurate and on pace across all ${measured} measured so far.`
+          : `Nothing measured yet: answer at least ${MIN_SAMPLES} problems involving the same number and it shows up here.`}
+        ${measuring ? ` ${measuring} still being measured.` : ''}
+      </p>`;
+  }
+
+  return `
+    <h2 class="section-title">Weak spots</h2>
+    <div class="card table-scroll">
+      <table>
+        <thead>
+          <tr><th>What</th><th>Technique</th><th class="num">Done</th><th class="num">Accuracy</th>
+              <th class="num">Median</th><th class="num">vs your pace</th><th>Why</th></tr>
+        </thead>
+        <tbody>
+          ${spots.map((spot) => `
+            <tr>
+              <td class="expr">${escapeHtml(spot.label)}</td>
+              <td class="muted">${escapeHtml(spot.techniqueName)}</td>
+              <td class="num">${spot.attempts}</td>
+              <td class="num">${Math.round(spot.accuracy * 100)}%</td>
+              <td class="num">${spot.medianMs ? formatSeconds(spot.medianMs) : '—'}</td>
+              <td class="num">${spot.slowdown ? `${spot.slowdown.toFixed(1)}×` : '—'}</td>
+              <td class="muted">${escapeHtml(weakReason(spot))}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <p class="answer-hint">
+      Ranked by misses and by how far off your own pace at that technique you are.
+      ${measuring ? `${measuring} more still being measured.` : ''}
+      <a href="drill.html?focus=weak&amp;mode=sprint&amp;d=medium&amp;limit=60">Train these &rarr;</a>
+    </p>`;
+}
+
 function sessionLabel(session) {
+  if (session.focus === 'weak') return `Weak points · ${session.difficulty}`;
   const names = session.techniques
     .map((id) => TECHNIQUES.find((t) => t.id === id)?.name ?? id);
   const label = names.length > 2 ? `${names.length} techniques` : names.join(', ');

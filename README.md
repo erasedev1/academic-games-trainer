@@ -17,6 +17,31 @@ Ex-Girlfriend Improved · Ex-Girlfriend Base 8, 9, 11
 Three difficulty levels each, and any set of techniques can be interleaved so you have to
 recognise which method applies before you can solve.
 
+## Weak points
+
+Every problem is tagged with the specific things it tests — `mod 11`, `λ(77)`, `divisor 8`,
+`the cycle of 3 mod 7`, `solving for the exponent`. Misses and solve times accumulate per
+tag, so a weakness gets pinned to a number rather than to a whole technique.
+
+A tag is scored from how often you miss it and how far off **your own pace** at that
+technique you are, so "slow" means slow for you rather than slow in absolute terms. Misses
+outweigh slowness: getting something wrong most of the time is a worse problem than getting
+it right slowly. Scores are smoothed toward neutral until there are enough attempts to mean
+anything, so one bad answer never tops the list, and anything you are accurate and on pace
+at is left off entirely — if nothing stands out, the page says so instead of inventing a
+ranking.
+
+**Train these** runs a session steered at what it found. It draws three candidate problems
+and keeps the shakiest, which puts a little over half the session on your weak spot while
+every other value still comes up — targeted without becoming the same problem twenty times.
+A technique counts as weak if its *worst measured tag* is weak, so being generally good at
+regular cycling does not hide the fact that mod 11 costs you every time. Techniques you
+have never tried rank mid-pack, so a weak session also covers new ground.
+
+Nothing appears until there is enough history to justify it: for the first few sessions the
+panel names whole techniques, and it switches to specific numbers once you have met them
+four times or more.
+
 **Formats:** 30s/60s/2min sprint · sets of 10, 20 or 50 · endless.
 <kbd>Enter</kbd> checks and advances, <kbd>Esc</kbd> ends. Stats are per technique and
 difficulty, kept in your browser's local storage — nothing is uploaded.

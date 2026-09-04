@@ -2,7 +2,7 @@
 
 import { modPow, powerCycle } from '../lib/math.js';
 import { mod as modHtml, pow } from '../lib/format.js';
-import { byDifficulty, DIGITS, intCheck, MODULI } from './shared.js';
+import { byDifficulty, DIGITS, intCheck, MODULI, tag } from './shared.js';
 
 // k is always a real Equations modulus, so difficulty is the cycle length and how far
 // the exponent has to be reduced. minPeriod 1 lets easy include the "repeating number"
@@ -34,6 +34,7 @@ export function generate(difficulty, rng) {
     canonicalText: String(answer),
     answer,
     params: { a, b, k },
+    tags: [tag(`k:${k}`, `mod ${k}`), tag(`a:${a}`, `base ${a}`), tag(`cycle:${a}^${k}`, `the cycle of ${a} mod ${k}`)],
     check: intCheck(answer),
   };
 }

@@ -2,7 +2,7 @@
 
 import { divisorCount, factorize } from '../lib/math.js';
 import { pow, xOf } from '../lib/format.js';
-import { byDifficulty, intCheck } from './shared.js';
+import { byDifficulty, intCheck, sizeTag, tag } from './shared.js';
 
 const CONFIG = {
   easy: { max: 100, primes: [2, 3, 5], exps: [1, 3], factoredForm: 0 },
@@ -22,7 +22,9 @@ export function generate(difficulty, rng) {
   // Sometimes hand it over already factored, which drills the principle rather than the
   // factoring — both halves of the skill are worth practising separately.
   const showFactored = rng() < cfg.factoredForm;
-  const factored = factorize(n).map(({ p, e }) => (e === 1 ? String(p) : pow(p, e))).join(' &middot; ');
+  const factors = factorize(n);
+  const primes = factors.map(({ p }) => p);
+  const factored = factors.map(({ p, e }) => (e === 1 ? String(p) : pow(p, e))).join(' &middot; ');
 
   return {
     promptHtml: xOf(showFactored ? factored : String(n)),
@@ -31,6 +33,7 @@ export function generate(difficulty, rng) {
     canonicalText: String(answer),
     answer,
     params: { n },
+    tags: [tag(`primes:${primes.join(',')}`, `primes ${primes.join(' \u00b7 ')}`), sizeTag(n), tag(showFactored ? 'form:factored' : 'form:plain', showFactored ? 'already factored' : 'factoring it yourself')],
     check: intCheck(answer),
   };
 }

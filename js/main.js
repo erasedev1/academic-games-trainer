@@ -2,7 +2,8 @@
 
 import { FAMILIES, getTechnique, techniquesInFamily } from './techniques/index.js';
 import { getRecord, loadPreferences, loadStats, savePreferences } from './storage.js';
-import { formatSeconds, median } from './lib/format.js';
+import { escapeHtml, formatSeconds, median } from './lib/format.js';
+import { hasEnoughData, weakList, weakReason } from './weakness.js';
 
 const LIMITS = {
   sprint: [
@@ -30,6 +31,7 @@ const state = {
 
 const stats = loadStats();
 const families = document.getElementById('families');
+const weakCard = document.getElementById('weak-points');
 const modeGroup = document.getElementById('mode');
 const limitGroup = document.getElementById('limit');
 const difficultyGroup = document.getElementById('difficulty');
@@ -152,6 +154,44 @@ document.getElementById('launcher').addEventListener('submit', (event) => {
   window.location.href = `drill.html?${params}`;
 });
 
+/**
+ * The weak-point panel. It only appears once some tag has been answered enough times to
+ * judge — before that the ranking would be noise dressed up as insight.
+ */
+function renderWeakPoints() {
+  if (!hasEnoughData(stats)) {
+    weakCard.hidden = true;
+    return;
+  }
+  const spots = weakList(stats, { limit: 5 });
+  weakCard.hidden = false;
+  weakCard.innerHTML = `
+    <div class="weak-head">
+      <h2 class="section-title" style="margin:0">Weak points</h2>
+      <button class="btn btn--primary" type="button" data-action="train-weak">Train these</button>
+    </div>
+    <p class="answer-hint">
+      From your last sessions, ranked by misses and by how far off your own pace you are.
+      Specific numbers appear here once you have met them a few times.
+    </p>
+    <ul class="weak-list">
+      ${spots.map((spot) => `
+        <li>
+          <span class="weak-label expr">${escapeHtml(spot.label)}</span>
+          <span class="weak-tech">${spot.kind === 'tag' ? escapeHtml(spot.techniqueName) : 'whole technique'}</span>
+          <span class="weak-why">${escapeHtml(weakReason(spot))}</span>
+          <span class="weak-num">${Math.round(spot.accuracy * 100)}% · ${spot.medianMs ? formatSeconds(spot.medianMs) : '—'}</span>
+        </li>`).join('')}
+    </ul>`;
+
+  weakCard.querySelector('[data-action="train-weak"]').addEventListener('click', () => {
+    const params = new URLSearchParams({ focus: 'weak', mode: state.mode, d: state.difficulty });
+    if (LIMITS[state.mode].length) params.set('limit', String(state.limit));
+    window.location.href = `drill.html?${params}`;
+  });
+}
+
+renderWeakPoints();
 renderFamilies();
 syncSegmented(modeGroup, state.mode);
 syncSegmented(difficultyGroup, state.difficulty);

@@ -49,6 +49,22 @@ export function mod(value, m) {
 export const DIFFICULTIES = ['easy', 'medium', 'hard'];
 
 /**
+ * A thing a problem tests, which the weak-point analysis accumulates timings against.
+ * `key` is stable and stored; `label` is what you read on screen. Keep the cardinality
+ * low — a tag only becomes useful once you have answered it a handful of times.
+ */
+export function tag(key, label) {
+  return { key, label };
+}
+
+/** Size bands, so magnitude can be a tag without one tag per number. */
+export function sizeTag(value) {
+  if (value < 10) return tag('size:small', 'single digit');
+  if (value < 100) return tag('size:medium', 'two digits');
+  return tag('size:large', 'three digits or more');
+}
+
+/**
  * In Equations the modulus is built out of cubes, so these are the only ones that
  * actually turn up on the board. Everything that generates a `mod k` goal draws k
  * from here — change this list and every cycling drill follows.

@@ -2,7 +2,7 @@
 // p must be an odd prime, or p^(c−1) is even and halving it leaves a decimal.
 
 import { pow, xOf } from '../lib/format.js';
-import { byDifficulty, intCheck } from './shared.js';
+import { byDifficulty, intCheck, tag } from './shared.js';
 
 const CONFIG = {
   easy: { c: [2, 4], primes: [3, 5] },
@@ -25,6 +25,7 @@ export function generate(difficulty, rng) {
     canonicalText: String(answer),
     answer,
     params: { c, p },
+    tags: [tag(`p:${p}`, `p = ${p}`), tag(`c:${c}`, `target ${c}`)],
     check: intCheck(answer),
   };
 }

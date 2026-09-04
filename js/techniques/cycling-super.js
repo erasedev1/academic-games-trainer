@@ -2,7 +2,7 @@
 
 import { carmichael, gcd, modPow } from '../lib/math.js';
 import { mod as modHtml, tower } from '../lib/format.js';
-import { byDifficulty, DIGITS, intCheck, MODULI } from './shared.js';
+import { byDifficulty, DIGITS, intCheck, MODULI, tag } from './shared.js';
 
 /**
  * Super cycling needs a second lambda step inside the first, so λ(λ(k)) has to be worth
@@ -63,6 +63,7 @@ export function generate(difficulty, rng) {
     canonicalText: String(answer),
     answer,
     params: { a, b, c, k },
+    tags: [tag(`k:${k}`, `mod ${k}`), tag(`b:${b}`, `tower base ${b}`)],
     check: intCheck(answer),
   };
 }

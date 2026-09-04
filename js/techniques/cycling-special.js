@@ -2,26 +2,26 @@
 
 import { carmichael, gcd, modPow } from '../lib/math.js';
 import { frac, lambda as lambdaHtml, mod as modHtml, pow } from '../lib/format.js';
-import { byDifficulty, congruentNumeratorCheck, step } from './shared.js';
+import { byDifficulty, congruentNumeratorCheck, DIGITS, MODULI, step } from './shared.js';
 
 const CONFIG = {
-  easy: { k: [5, 11], c: [2, 3, 7], a: [2, 7], r: [2, 3], reps: [1, 3] },
-  medium: { k: [5, 13], c: [2, 3, 7, 9], a: [2, 9], r: [2, 4], reps: [1, 5] },
-  hard: { k: [7, 17], c: [3, 7, 8, 9, 11], a: [2, 12], r: [2, 4], reps: [2, 8] },
+  easy: { c: [2, 3, 5, 7], r: [2, 3], reps: [1, 3] },
+  medium: { c: DIGITS, r: [2, 3], reps: [1, 5] },
+  hard: { c: DIGITS, r: [2, 4], reps: [2, 8] },
 };
 
 export function generate(difficulty, rng) {
   const cfg = byDifficulty(CONFIG, difficulty);
   const { a, c, k, r } = rng.until(
     () => {
-      const k = rng.int(cfg.k[0], cfg.k[1]);
+      const k = rng.pick(MODULI);
       const c = rng.pick(cfg.c);
-      const a = rng.int(cfg.a[0], cfg.a[1]);
+      const a = rng.pick(DIGITS);
       const r = rng.int(cfg.r[0], cfg.r[1]);
       return { a, c, k, r };
     },
     ({ a, c, k, r }) =>
-      k > 3 && gcd(c, k) === 1 && c !== k && gcd(a, c * k) === 1 && a % k > 1 &&
+      gcd(c, k) === 1 && c !== k && gcd(a, c * k) === 1 && a % k > 1 &&
       // Keep a^r small enough to work out by hand, the way the manual's examples do.
       a ** r <= 4000 && carmichael(c * k) > r,
   );

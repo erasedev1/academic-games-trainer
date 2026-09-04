@@ -12,6 +12,9 @@ import { parseAnswer } from '../js/lib/format.js';
 import { createRng } from '../js/lib/rng.js';
 import { TECHNIQUES } from '../js/techniques/index.js';
 import { BASES, exponentFor } from '../js/techniques/eg-bases.js';
+import { DIGITS, MODULI } from '../js/techniques/shared.js';
+import { SUPER_MODULI } from '../js/techniques/cycling-super.js';
+import { VIABLE_PAIRS } from '../js/techniques/cycling-alain.js';
 
 let passed = 0;
 const failures = [];
@@ -190,6 +193,58 @@ for (let a = 1; a <= 40; a++) {
   equal(`base 11 reaches ${a}`, exponentFor(11, a), a - 1);
 }
 
+// --- what Equations can actually put on the board --------------------------
+
+console.log('realistic parameter pools');
+check('moduli are exactly 6 through 11', MODULI.join(',') === '6,7,8,9,10,11', MODULI.join(','));
+check('digits are 2 through 9', DIGITS.join(',') === '2,3,4,5,6,7,8,9', DIGITS.join(','));
+check('super cycling keeps the moduli with a real inner step', SUPER_MODULI.join(',') === '7,9,10,11', SUPER_MODULI.join(','));
+check('every super modulus has λ(λ(k)) > 1', SUPER_MODULI.every((k) => carmichael(carmichael(k)) > 1));
+check('the moduli super cycling drops are the degenerate ones',
+  MODULI.filter((k) => !SUPER_MODULI.includes(k)).every((k) => carmichael(carmichael(k)) === 1));
+check('Alain has viable (c, k) pairs', VIABLE_PAIRS.length >= 10, `${VIABLE_PAIRS.length} pairs`);
+for (const { c, k } of VIABLE_PAIRS) {
+  if (!MODULI.includes(k) || !DIGITS.includes(c) || gcd(c, k) !== 1 || carmichael(c * k) < 10) {
+    failures.push(`Alain pair c=${c}, k=${k} should not be viable`);
+  }
+}
+passed++;
+// The λ drill should ask about the moduli and the ck products, and nothing else.
+const lambdaTechnique = TECHNIQUES.find((t) => t.id === 'lambda-value');
+const legalLambdaArgs = new Set([
+  ...MODULI,
+  ...DIGITS.flatMap((c) => MODULI.filter((k) => gcd(c, k) === 1).map((k) => c * k)),
+]);
+{
+  const rng = createRng(5150);
+  for (let i = 0; i < 300; i++) {
+    const { k } = lambdaTechnique.generate('hard', rng).params;
+    if (!legalLambdaArgs.has(k)) {
+      failures.push(`λ drill asked for λ(${k}), which no real goal produces`);
+      break;
+    }
+  }
+}
+passed++;
+
+// A tower that reduces to 1 leaves the answer as plain a. It is a real case — one of the
+// manual's own two super duper examples is exactly that — but if it were most of them the
+// drill would just teach "answer is a". cde is a product of three digits and so is almost
+// always even, which is what made this the default before the generators controlled for it.
+for (const id of ['cycling-super', 'cycling-super-duper']) {
+  const technique = TECHNIQUES.find((t) => t.id === id);
+  for (const difficulty of ['easy', 'medium', 'hard']) {
+    const rng = createRng(77);
+    let collapsed = 0;
+    for (let i = 0; i < 400; i++) {
+      const problem = technique.generate(difficulty, rng);
+      if (problem.answer === problem.params.a % problem.params.k) collapsed++;
+    }
+    check(`${id}/${difficulty} does not collapse to a most of the time`,
+      collapsed / 400 < 0.5, `${Math.round((collapsed / 400) * 100)}% collapsed`);
+  }
+}
+
 // --- per-technique verification --------------------------------------------
 
 const oracles = {
@@ -212,13 +267,30 @@ const oracles = {
   'eg-bases': ({ base, a }) => exponentFor(base, a),
 };
 
+/**
+ * Realism constraints, checked on every generated problem: in Equations the modulus is
+ * built from cubes, so a cycling goal can only ever be mod 6 through 11, and a, c and the
+ * colour exponents come off single digit cubes.
+ */
+const realism = {
+  'cycling-regular': ({ a, k }) => MODULI.includes(k) && DIGITS.includes(a),
+  'cycling-lambda': ({ a, k }) => MODULI.includes(k) && DIGITS.includes(a),
+  'cycling-special': ({ a, c, k }) => MODULI.includes(k) && DIGITS.includes(a) && DIGITS.includes(c),
+  'cycling-super': ({ a, k }) => MODULI.includes(k) && DIGITS.includes(a),
+  'cycling-super-duper': ({ a, c, d, e, k }) =>
+    MODULI.includes(k) && DIGITS.includes(a) && [c, d, e].every((v) => v >= 2 && v <= 9),
+  'cycling-alain': ({ a, c, k }) => MODULI.includes(k) && DIGITS.includes(a) && DIGITS.includes(c),
+};
+
 /** Preconditions each generator promises to honour. */
 const invariants = {
   'cycling-lambda': ({ a, k }) => gcd(a, k) === 1,
   'cycling-special': ({ a, c, k }) => gcd(a, c * k) === 1 && gcd(c, k) === 1,
   'cycling-super': ({ a, b, k }) => gcd(a, k) === 1 && gcd(b, carmichael(k)) === 1,
   'cycling-super-duper': ({ a, b, k }) => gcd(a, k) === 1 && gcd(b, carmichael(k)) === 1,
-  'cycling-alain': ({ a, b, c, k }) => gcd(a, c * k) === 1 && gcd(c, k) === 1 && b % carmichael(c * k) >= 8,
+  // Alain's whole point: the reduced exponent leaves a power far too big to expand.
+  'cycling-alain': ({ a, b, c, k }) =>
+    gcd(a, c * k) === 1 && gcd(c, k) === 1 && a ** (b % carmichael(c * k)) > 1e5,
   'eg-first': ({ a }) => Number.isInteger(Math.sqrt(a)),
   'eg-second': ({ b }) => b % 2 === 1,
   'eg-third': ({ p, c }) => p % 2 === 1 && c >= 2,
@@ -250,6 +322,10 @@ for (const technique of TECHNIQUES) {
       }
       if (invariants[technique.id] && !invariants[technique.id](problem.params)) {
         failures.push(`${technique.id}/${difficulty}: broke its own preconditions with ${JSON.stringify(problem.params)}`);
+        break;
+      }
+      if (realism[technique.id] && !realism[technique.id](problem.params)) {
+        failures.push(`${technique.id}/${difficulty}: unrealistic parameters ${JSON.stringify(problem.params)}`);
         break;
       }
       // The canonical answer must be accepted, and an off-by-one must not be.

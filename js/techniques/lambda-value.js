@@ -1,13 +1,21 @@
 // 2a. The lambda function itself — the building block every fast method leans on.
 
-import { carmichael, carmichaelPrimePower, factorize, isPrime, lcmAll } from '../lib/math.js';
+import { carmichael, factorize, gcd, isPrime, lcmAll } from '../lib/math.js';
 import { lambda as lambdaHtml, pow } from '../lib/format.js';
-import { byDifficulty, intCheck, step } from './shared.js';
+import { byDifficulty, DIGITS, intCheck, MODULI, step } from './shared.js';
+
+/**
+ * The arguments worth drilling are the ones the other methods actually hand you:
+ * a bare modulus for lambda cycling, and a ck product for special and Alain cycling.
+ */
+const PRODUCTS = DIGITS.flatMap((c) => MODULI.filter((k) => gcd(c, k) === 1).map((k) => c * k));
+const ARGUMENTS = [...new Set([...MODULI, ...PRODUCTS])].sort((x, y) => x - y);
 
 const CONFIG = {
-  easy: { max: 20, wantPrime: 0.5 },
-  medium: { max: 100, wantPrime: 0.2 },
-  hard: { max: 300, wantPrime: 0.1 },
+  // Easy is the bare moduli; harder levels bring in the ck products, largest last.
+  easy: { pool: MODULI },
+  medium: { pool: ARGUMENTS.filter((n) => n <= 45) },
+  hard: { pool: ARGUMENTS },
 };
 
 /** The manual's per-factor items: (p − 1) from the bases, p^(e−1) from the exponents. */
@@ -28,11 +36,7 @@ export function lambdaWorkings(k) {
 
 export function generate(difficulty, rng) {
   const cfg = byDifficulty(CONFIG, difficulty);
-  const wantPrime = rng() < cfg.wantPrime;
-  const k = rng.until(
-    () => rng.int(3, cfg.max),
-    (n) => (wantPrime ? isPrime(n) : n > 3 && factorize(n).length >= 1),
-  );
+  const k = rng.pick(cfg.pool);
   const answer = carmichael(k);
   const { factors, baseItems, expItems } = lambdaWorkings(k);
   const prime = isPrime(k);
@@ -82,7 +86,7 @@ export default {
   name: 'Lambda Function',
   family: 'cycling',
   form: '&lambda;(k)',
-  blurb: 'Drill the λ values themselves — the step that gates every fast cycling method.',
+  blurb: 'Drill the λ values themselves — every modulus and ck product you can actually meet.',
   generate,
   reference: {
     overview:
@@ -95,7 +99,7 @@ export default {
       'If your argument is prime, skip all previous steps and simply subtract 1 from the argument.',
     ],
     note:
-      'One correction to the shortcut: for 2^2 = 4 it produces 1, but λ(4) is actually 2. Every other value agrees with the true Carmichael function, because p − 1 and p^(e−1) are coprime and so their LCM is their product. This trainer grades against the true λ, so λ(4) = 2, λ(12) = 2, λ(20) = 4.',
+      'One correction to the shortcut: for 2^2 = 4 it produces 1, but λ(4) is actually 2. Every other value agrees with the true Carmichael function, because p − 1 and p^(e−1) are coprime and so their LCM is their product. This trainer grades against the true λ, so λ(4) = 2, λ(12) = 2, λ(20) = 4. The arguments drilled here are the ones real goals hand you: a modulus 6 through 11, or a ck product from special and Alain cycling — λ(60) below is the manual illustrating the method, not a value you would meet.',
     examples: [
       {
         goal: 'λ(60)',

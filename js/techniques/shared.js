@@ -58,6 +58,16 @@ export function step(title, ...lines) {
 
 export const DIFFICULTIES = ['easy', 'medium', 'hard'];
 
+/**
+ * In Equations the modulus is built out of cubes, so these are the only ones that
+ * actually turn up on the board. Everything that generates a `mod k` goal draws k
+ * from here — change this list and every cycling drill follows.
+ */
+export const MODULI = [6, 7, 8, 9, 10, 11];
+
+/** a, b and c come off digit cubes, so they are single digits. 0 and 1 are never a goal. */
+export const DIGITS = [2, 3, 4, 5, 6, 7, 8, 9];
+
 /** Picks a per-difficulty config, falling back to medium for unknown values. */
 export function byDifficulty(config, difficulty) {
   return config[difficulty] ?? config.medium;

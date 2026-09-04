@@ -2,23 +2,20 @@
 
 import { carmichael, gcd, isPrime, modPow, powerCycle } from '../lib/math.js';
 import { lambda as lambdaHtml, mod as modHtml, pow } from '../lib/format.js';
-import { byDifficulty, intCheck, step } from './shared.js';
+import { byDifficulty, DIGITS, intCheck, MODULI, step } from './shared.js';
 import { cycleLines } from './cycling-regular.js';
 
 const CONFIG = {
-  easy: { k: [5, 13], b: [30, 99] },
-  medium: { k: [5, 25], b: [100, 499] },
-  hard: { k: [7, 40], b: [500, 9999] },
+  easy: { b: [30, 99] },
+  medium: { b: [100, 499] },
+  hard: { b: [500, 9999] },
 };
 
 export function generate(difficulty, rng) {
   const cfg = byDifficulty(CONFIG, difficulty);
   const { a, k } = rng.until(
-    () => {
-      const k = rng.int(cfg.k[0], cfg.k[1]);
-      return { a: rng.int(2, Math.max(2, k - 1)), k };
-    },
-    ({ a, k }) => k > 3 && a % k > 1 && gcd(a, k) === 1 && carmichael(k) > 1,
+    () => ({ a: rng.pick(DIGITS), k: rng.pick(MODULI) }),
+    ({ a, k }) => a % k > 1 && gcd(a, k) === 1,
   );
   const b = rng.int(cfg.b[0], cfg.b[1]);
   const n = carmichael(k);

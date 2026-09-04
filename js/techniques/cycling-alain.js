@@ -2,12 +2,25 @@
 
 import { carmichael, crt, gcd, modPow } from '../lib/math.js';
 import { frac, lambda as lambdaHtml, mod as modHtml, pow } from '../lib/format.js';
-import { byDifficulty, congruentNumeratorCheck, step } from './shared.js';
+import { byDifficulty, congruentNumeratorCheck, DIGITS, MODULI, step } from './shared.js';
+
+/**
+ * Alain cycling is the special-cycling case that blows up, which needs room for the
+ * reduced exponent to stay large — so λ(ck) has to be reasonably big. Enumerating the
+ * (c, k) pairs that qualify beats rejection-sampling for them: with the modulus limited
+ * to what Equations actually offers, only a dozen combinations work at all.
+ */
+export const VIABLE_PAIRS = DIGITS.flatMap((c) =>
+  MODULI.filter((k) => gcd(c, k) === 1 && carmichael(c * k) >= 10).map((k) => ({ c, k })),
+);
+
+/** Past this the power is hopeless to expand by hand, which is what forces CRT. */
+const TOO_BIG_TO_EXPAND = 1e5;
 
 const CONFIG = {
-  easy: { k: [7, 11], c: [7, 8], a: [2, 9], b: [20, 40] },
-  medium: { k: [7, 13], c: [7, 8, 9], a: [2, 12], b: [25, 70] },
-  hard: { k: [11, 19], c: [7, 8, 9, 13], a: [2, 15], b: [30, 120] },
+  easy: { reps: [1, 2] },
+  medium: { reps: [1, 4] },
+  hard: { reps: [2, 8] },
 };
 
 /** The manual's additive ladder: 1 + 7 + 7 = 15. Collapses to a product when it gets long. */
@@ -20,19 +33,17 @@ function ladder(start, stepSize, total) {
 
 export function generate(difficulty, rng) {
   const cfg = byDifficulty(CONFIG, difficulty);
-  const { a, b, c, k } = rng.until(
+  const { a, c, k, r } = rng.until(
     () => {
-      const k = rng.int(cfg.k[0], cfg.k[1]);
-      const c = rng.pick(cfg.c);
-      return { a: rng.int(cfg.a[0], cfg.a[1]), b: rng.int(cfg.b[0], cfg.b[1]), c, k };
+      const { c, k } = rng.pick(VIABLE_PAIRS);
+      // Pick the reduced exponent first, then build b around it, so the "too big to
+      // expand" property is guaranteed rather than hoped for.
+      return { a: rng.pick(DIGITS), c, k, r: rng.int(6, carmichael(c * k) - 1) };
     },
-    ({ a, b, c, k }) =>
-      k > 5 && gcd(c, k) === 1 && gcd(a, c * k) === 1 && a % k > 1 &&
-      // The point of Alain cycling: the reduced exponent is still far too big to expand,
-      // so special cycling stalls and CRT is the way through.
-      b % carmichael(c * k) >= 8,
+    ({ a, c, k, r }) => gcd(a, c * k) === 1 && a % k > 1 && a ** r > TOO_BIG_TO_EXPAND,
   );
   const ck = c * k;
+  const b = r + carmichael(ck) * rng.int(cfg.reps[0], cfg.reps[1]);
   const n = modPow(a, b, c);
   const m = modPow(a, b, k);
   const target = crt(n, c, m, k);

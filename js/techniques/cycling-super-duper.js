@@ -2,31 +2,45 @@
 
 import { carmichael, gcd } from '../lib/math.js';
 import { escapeHtml, mod as modHtml, tower } from '../lib/format.js';
-import { byDifficulty, intCheck, step } from './shared.js';
-import { superSteps } from './cycling-super.js';
+import { byDifficulty, DIGITS, intCheck, step } from './shared.js';
+import { pickExponent, superSteps, SUPER_MODULI, TRIVIAL_SHARE } from './cycling-super.js';
 
+// c, d and e are colour exponents, so they are single digits like everything else.
 const CONFIG = {
-  easy: { k: [5, 11], b: [3, 11], cde: [2, 6] },
-  medium: { k: [5, 13], b: [3, 17], cde: [2, 9] },
-  hard: { k: [7, 19], b: [3, 25], cde: [4, 9] },
+  easy: { b: DIGITS, cde: [2, 6] },
+  medium: { b: [...DIGITS, 11, 12], cde: [2, 9] },
+  hard: { b: [...DIGITS, 11, 12, 13], cde: [4, 9] },
 };
+
+function pickExponentTriple(rng, k, b, range, wantTrivial) {
+  let triple;
+  pickExponent(
+    rng,
+    k,
+    b,
+    () => {
+      triple = [0, 0, 0].map(() => rng.int(range[0], range[1]));
+      return triple[0] * triple[1] * triple[2];
+    },
+    wantTrivial,
+  );
+  return triple;
+}
 
 export function generate(difficulty, rng) {
   const cfg = byDifficulty(CONFIG, difficulty);
   const { a, b, k } = rng.until(
-    () => {
-      const k = rng.int(cfg.k[0], cfg.k[1]);
-      return { a: rng.int(2, Math.max(2, k - 1)), b: rng.int(cfg.b[0], cfg.b[1]), k };
-    },
+    () => ({ a: rng.pick(DIGITS), b: rng.pick(cfg.b), k: rng.pick(SUPER_MODULI) }),
     ({ a, b, k }) => {
-      if (k <= 3 || a % k <= 1) return false;
+      if (a % k <= 1) return false;
       const n = carmichael(k);
-      return n > 1 && gcd(a, k) === 1 && gcd(b, n) === 1 && b % n !== 0 && carmichael(n) > 1;
+      return gcd(a, k) === 1 && gcd(b, n) === 1 && b % n !== 1;
     },
   );
-  const c = rng.int(cfg.cde[0], cfg.cde[1]);
-  const d = rng.int(cfg.cde[0], cfg.cde[1]);
-  const e = rng.int(cfg.cde[0], cfg.cde[1]);
+  // cde is a product of three digits, so it is even far more often than not — left alone,
+  // almost every one of these would reduce to a. Draw c, d and e together against the
+  // outcome instead, so the collapse stays a case you meet rather than the whole drill.
+  const [c, d, e] = pickExponentTriple(rng, k, b, cfg.cde, rng() < TRIVIAL_SHARE);
   const f = c * d * e;
   const { answer, steps } = superSteps({ a, b, k, exponent: f, exponentLabel: 'f' });
 

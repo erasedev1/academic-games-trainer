@@ -2,13 +2,30 @@
 
 import { carmichael, gcd, isPrime, modPow } from '../lib/math.js';
 import { lambda as lambdaHtml, mod as modHtml, pow, tower } from '../lib/format.js';
-import { byDifficulty, intCheck, step } from './shared.js';
+import { byDifficulty, DIGITS, intCheck, MODULI, step } from './shared.js';
+
+/**
+ * Super cycling needs a second lambda step inside the first, so λ(λ(k)) has to be
+ * worth computing. Of the real moduli that leaves 7, 9, 10 and 11 — for 6 and 8,
+ * λ(k) = 2 and the inner power collapses to 1 every time, which is no drill at all.
+ */
+export const SUPER_MODULI = MODULI.filter((k) => carmichael(carmichael(k)) > 1);
 
 const CONFIG = {
-  easy: { k: [5, 11], b: [3, 13], c: [4, 20] },
-  medium: { k: [5, 17], b: [3, 25], c: [8, 60] },
-  hard: { k: [7, 23], b: [3, 40], c: [20, 200] },
+  easy: { b: DIGITS, c: [4, 20] },
+  medium: { b: [...DIGITS, 11, 12], c: [8, 60] },
+  hard: { b: [...DIGITS, 11, 12, 13], c: [20, 200] },
 };
+
+/** How often the inner power is allowed to collapse to 1, leaving the answer as just a. */
+export const TRIVIAL_SHARE = 0.25;
+
+/** Draws an exponent whose inner power either collapses to 1 or doesn't, as asked. */
+export function pickExponent(rng, k, b, draw, wantTrivial) {
+  const n = carmichael(k);
+  const base = b % n;
+  return rng.until(draw, (value) => (modPow(base, value, n) === 1) === wantTrivial);
+}
 
 /** Shared by super and super duper: reduce b, then the tower, then evaluate. */
 export function superSteps({ a, b, k, exponent, exponentLabel }) {
@@ -50,18 +67,18 @@ export function superSteps({ a, b, k, exponent, exponentLabel }) {
 export function generate(difficulty, rng) {
   const cfg = byDifficulty(CONFIG, difficulty);
   const { a, b, k } = rng.until(
-    () => {
-      const k = rng.int(cfg.k[0], cfg.k[1]);
-      return { a: rng.int(2, Math.max(2, k - 1)), b: rng.int(cfg.b[0], cfg.b[1]), k };
-    },
+    () => ({ a: rng.pick(DIGITS), b: rng.pick(cfg.b), k: rng.pick(SUPER_MODULI) }),
     ({ a, b, k }) => {
-      if (k <= 3 || a % k <= 1) return false;
+      if (a % k <= 1) return false;
       const n = carmichael(k);
       // a and k coprime, and b coprime to λ(k), so both levels can be lambda cycled.
-      return n > 1 && gcd(a, k) === 1 && gcd(b, n) === 1 && b % n !== 0 && carmichael(n) > 1;
+      // b ≡ 1 (mod λ(k)) is excluded: it collapses the tower before you start.
+      return gcd(a, k) === 1 && gcd(b, n) === 1 && b % n !== 1;
     },
   );
-  const c = rng.int(cfg.c[0], cfg.c[1]);
+  // When the tower reduces to 1 the answer is just a, which is a real case but a poor
+  // drill if it is most of them — so it is rationed rather than left to chance.
+  const c = pickExponent(rng, k, b, () => rng.int(cfg.c[0], cfg.c[1]), rng() < TRIVIAL_SHARE);
   const { answer, steps } = superSteps({ a, b, k, exponent: c, exponentLabel: 'c' });
 
   return {

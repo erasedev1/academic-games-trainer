@@ -2,12 +2,16 @@
 
 import { modPow, powerCycle, reduceExponent } from '../lib/math.js';
 import { mod as modHtml, pow } from '../lib/format.js';
-import { byDifficulty, intCheck, step } from './shared.js';
+import { byDifficulty, DIGITS, intCheck, MODULI, step } from './shared.js';
 
+// k is always a real Equations modulus; difficulty comes from how long the cycle is
+// and how far the exponent has to be reduced, not from an unrealistic modulus.
 const CONFIG = {
-  easy: { k: [5, 11], b: [15, 40], maxPeriod: 6 },
-  medium: { k: [5, 20], b: [40, 150], maxPeriod: 10 },
-  hard: { k: [7, 30], b: [150, 999], maxPeriod: 14 },
+  // minPeriod 1 lets easy include the manual's "repeating number" case (5^89 mod 10),
+  // where every power ends the same. Above easy there has to be a cycle to reduce.
+  easy: { b: [15, 40], minPeriod: 1, maxPeriod: 4 },
+  medium: { b: [40, 150], minPeriod: 2, maxPeriod: 10 },
+  hard: { b: [150, 999], minPeriod: 2, maxPeriod: 10 },
 };
 
 /** Writes out the powers of a the way the manual does: previous residue × a, then reduced. */
@@ -24,11 +28,12 @@ export function generate(difficulty, rng) {
   const cfg = byDifficulty(CONFIG, difficulty);
   const { a, k, cycle } = rng.until(
     () => {
-      const k = rng.int(cfg.k[0], cfg.k[1]);
-      const a = rng.int(2, Math.max(2, k - 1));
+      const k = rng.pick(MODULI);
+      const a = rng.pick(DIGITS);
       return { a, k, cycle: powerCycle(a, k) };
     },
-    ({ a, k, cycle }) => a % k !== 0 && a % k !== 1 && cycle.period <= cfg.maxPeriod && cycle.residues.length <= cfg.maxPeriod + 2,
+    ({ a, k, cycle }) =>
+      a % k !== 0 && a % k !== 1 && cycle.period >= cfg.minPeriod && cycle.period <= cfg.maxPeriod,
   );
   const b = rng.int(cfg.b[0], cfg.b[1]);
   const answer = modPow(a, b, k);

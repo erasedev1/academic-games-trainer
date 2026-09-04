@@ -38,6 +38,26 @@ It is a static site with **no build step and no dependencies** — open `index.h
 Each has three difficulty levels, and every technique can be mixed with any other so you
 have to recognise which method applies before you can start solving.
 
+## Staying inside what the cubes can build
+
+Every generated goal is one you could actually be set in a match:
+
+- **The modulus is always 6 through 11.** It is built from cubes, so nothing else appears.
+  Difficulty therefore comes from the exponent and the cycle length, not from an
+  unrealistic modulus. The list lives in one place — `MODULI` in
+  `js/techniques/shared.js` — and every cycling drill reads from it.
+- **a, c and the colour exponents are single digits**, for the same reason.
+- **Super cycling uses mod 7, 9, 10 and 11.** For 6 and 8, λ(k) = 2, so the inner power
+  collapses to 1 every time and there is no second cycle to do.
+- **Alain cycling uses the twelve (c, k) pairs where λ(ck) ≥ 10** — anything smaller
+  leaves no room for a reduced exponent big enough to be unexpandable, which is the
+  entire reason the case exists.
+- **Collapses are rationed.** When the tower reduces to 1 the answer is just a. That is a
+  real case — one of the manual's two super duper examples is exactly that — but cde is a
+  product of three digits and so is nearly always even, which would have made it ~80% of
+  the drill. The generators now aim for about a quarter, and a test fails if it exceeds
+  half.
+
 ## Session formats
 
 - **Sprint** — 30s, 60s or 2 minutes; answer as many as you can.

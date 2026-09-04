@@ -69,9 +69,7 @@ function render() {
                 <td class="num">${mid === null ? '—' : formatSeconds(mid)}</td>
                 <td class="num">${record.best === null ? '—' : formatSeconds(record.best)}</td>
                 <td class="num">${record.longestStreak}</td>
-                <td>${technique.drillable === false
-                  ? '<span class="muted">retired</span>'
-                  : `<a class="btn btn--small" href="drill.html?t=${technique.id}&amp;mode=sprint&amp;d=${difficulty}&amp;limit=60">Drill</a>`}</td>
+                <td><a class="btn btn--small" href="drill.html?t=${technique.id}&amp;mode=sprint&amp;d=${difficulty}&amp;limit=60">Drill</a></td>
               </tr>`;
           }).join('')}
         </tbody>

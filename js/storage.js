@@ -31,7 +31,7 @@ export function loadStats() {
 }
 
 function blankRecord() {
-  return { attempts: 0, correct: 0, revealed: 0, times: [], best: null, streak: 0, longestStreak: 0 };
+  return { attempts: 0, correct: 0, times: [], best: null, streak: 0, longestStreak: 0 };
 }
 
 function recordKey(techniqueId, difficulty) {
@@ -42,26 +42,20 @@ export function getRecord(data, techniqueId, difficulty) {
   return data.techniques[recordKey(techniqueId, difficulty)] ?? blankRecord();
 }
 
-/**
- * Folds one answered problem into the stats. Revealed problems still count for
- * accuracy — you did get it wrong or right — but never set a speed record.
- */
-export function recordAttempt({ techniqueId, difficulty, correct, elapsedMs, revealed }) {
+/** Folds one answered problem into the stats. */
+export function recordAttempt({ techniqueId, difficulty, correct, elapsedMs }) {
   const data = readRaw();
   const key = recordKey(techniqueId, difficulty);
   const record = data.techniques[key] ?? blankRecord();
 
   record.attempts++;
-  if (revealed) record.revealed++;
   if (correct) {
     record.correct++;
     record.streak++;
     record.longestStreak = Math.max(record.longestStreak, record.streak);
-    if (!revealed) {
-      // Keep the last 200 times — enough for a stable median without unbounded growth.
-      record.times = [...record.times, elapsedMs].slice(-200);
-      record.best = record.best === null ? elapsedMs : Math.min(record.best, elapsedMs);
-    }
+    // Keep the last 200 times — enough for a stable median without unbounded growth.
+    record.times = [...record.times, elapsedMs].slice(-200);
+    record.best = record.best === null ? elapsedMs : Math.min(record.best, elapsedMs);
   } else {
     record.streak = 0;
   }

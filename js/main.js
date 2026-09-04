@@ -1,6 +1,6 @@
 // Home page: pick techniques, pick a format, launch.
 
-import { drillsInFamily, FAMILIES, getDrill } from './techniques/index.js';
+import { FAMILIES, getTechnique, techniquesInFamily } from './techniques/index.js';
 import { getRecord, loadPreferences, loadStats, savePreferences } from './storage.js';
 import { formatSeconds, median } from './lib/format.js';
 
@@ -19,8 +19,8 @@ const LIMITS = {
 };
 
 const prefs = loadPreferences();
-// A saved preference can name a technique that is no longer drillable.
-const savedSelection = (prefs.selected ?? []).filter((id) => getDrill(id));
+// A saved preference can name a technique that no longer exists.
+const savedSelection = (prefs.selected ?? []).filter((id) => getTechnique(id));
 const state = {
   selected: new Set(savedSelection.length ? savedSelection : ['cycling-regular']),
   mode: prefs.mode ?? 'sprint',
@@ -39,7 +39,7 @@ const startButton = document.getElementById('start');
 /** A one-line "you've done this N times, median 4.2s" for a technique card. */
 function recordSummary(techniqueId) {
   const record = getRecord(stats, techniqueId, state.difficulty);
-  if (!record.attempts) return 'not attempted yet';
+  if (!record.attempts) return '—';
   const accuracy = Math.round((record.correct / record.attempts) * 100);
   const mid = median(record.times);
   return `${record.attempts} attempted · ${accuracy}% · ${mid === null ? '—' : `median ${formatSeconds(mid)}`}`;
@@ -48,14 +48,12 @@ function recordSummary(techniqueId) {
 function renderFamilies() {
   families.innerHTML = FAMILIES.map((family) => `
     <h2 class="section-title">${family.name}</h2>
-    <p class="section-blurb">${family.blurb}</p>
     <div class="technique-grid">
-      ${drillsInFamily(family.id).map((technique) => `
+      ${techniquesInFamily(family.id).map((technique) => `
         <button type="button" class="technique" data-id="${technique.id}"
                 aria-pressed="${state.selected.has(technique.id)}">
           <span class="technique-name">${technique.name}</span>
           <span class="technique-form expr">${technique.form}</span>
-          <span class="technique-blurb">${technique.blurb}</span>
           <span class="technique-stat" data-stat="${technique.id}">${recordSummary(technique.id)}</span>
         </button>
       `).join('')}
@@ -85,13 +83,9 @@ function syncSegmented(group, value) {
 function renderSummary() {
   const count = state.selected.size;
   startButton.disabled = count === 0;
-  if (count === 0) {
-    summary.textContent = 'Pick at least one technique.';
-  } else if (count === 1) {
-    summary.textContent = 'One technique.';
-  } else {
-    summary.textContent = `${count} techniques, interleaved — you have to spot which method applies.`;
-  }
+  summary.textContent = count === 0
+    ? 'Pick at least one.'
+    : count === 1 ? '' : `${count} techniques, interleaved.`;
 }
 
 function refreshStatLines() {

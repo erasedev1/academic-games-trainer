@@ -1,6 +1,6 @@
 // The session runner: one generic loop over whichever techniques were selected.
 
-import { DRILLS, getDrill } from './techniques/index.js';
+import { getTechnique, TECHNIQUES } from './techniques/index.js';
 import { createRng, randomSeed } from './lib/rng.js';
 import { escapeHtml, formatClock, formatSeconds, median } from './lib/format.js';
 import { recordAttempt, recordSession } from './storage.js';
@@ -11,7 +11,7 @@ const params = new URLSearchParams(window.location.search);
 const config = {
   techniques: (params.get('t') ?? '')
     .split(',')
-    .map((id) => getDrill(id.trim()))
+    .map((id) => getTechnique(id.trim()))
     .filter(Boolean),
   mode: ['sprint', 'set', 'endless'].includes(params.get('mode')) ? params.get('mode') : 'sprint',
   difficulty: ['easy', 'medium', 'hard'].includes(params.get('d')) ? params.get('d') : 'medium',
@@ -23,7 +23,6 @@ const state = {
   rng: createRng(config.seed),
   problem: null,
   phase: 'answering',
-  revealed: false,
   startedAt: 0,
   sessionStart: Date.now(),
   results: [],
@@ -64,7 +63,6 @@ function nextProblem() {
   const technique = state.rng.pick(config.techniques);
   state.problem = { ...technique.generate(config.difficulty, state.rng), technique };
   state.phase = 'answering';
-  state.revealed = false;
   state.startedAt = Date.now();
 }
 
@@ -105,7 +103,6 @@ function submit(raw) {
   if (state.phase !== 'answering') return;
   const text = String(raw ?? '').trim();
   if (text === '') return;
-  if (text === '?') return reveal();
 
   const elapsedMs = Date.now() - state.startedAt;
   const result = state.problem.check(text);
@@ -113,7 +110,6 @@ function submit(raw) {
   state.results.push({
     correct: result.correct,
     elapsedMs,
-    revealed: state.revealed,
     techniqueId: state.problem.technique.id,
     promptHtml: state.problem.promptHtml,
     canonicalText: state.problem.canonicalText,
@@ -124,7 +120,6 @@ function submit(raw) {
     difficulty: config.difficulty,
     correct: result.correct,
     elapsedMs,
-    revealed: state.revealed,
   });
   render({ feedback: { ...result, elapsedMs, given: text } });
 
@@ -132,11 +127,6 @@ function submit(raw) {
     // Let the last answer land on screen before the summary replaces it.
     setTimeout(finish, 900);
   }
-}
-
-function reveal() {
-  state.revealed = true;
-  render({ forceSolution: true });
 }
 
 function advance() {
@@ -150,7 +140,7 @@ function advance() {
 function finish() {
   if (state.finished) return;
   state.finished = true;
-  const times = state.results.filter((r) => r.correct && !r.revealed).map((r) => r.elapsedMs);
+  const times = state.results.filter((r) => r.correct).map((r) => r.elapsedMs);
   recordSession({
     at: Date.now(),
     mode: config.mode,
@@ -166,27 +156,11 @@ function finish() {
 
 // --- rendering -------------------------------------------------------------
 
-function solutionHtml(problem, open) {
-  return `
-    <details class="solution"${open ? ' open' : ''}>
-      <summary>Step-by-step solution</summary>
-      <div class="solution-body">
-        ${problem.steps.map((step) => `
-          <div class="solution-step">
-            <h4>${step.title}</h4>
-            ${step.lines.map((line) => `<div class="line expr">${line}</div>`).join('')}
-          </div>
-        `).join('')}
-        <p class="answer-hint" style="margin-bottom:0">
-          <a href="reference.html#${problem.technique.id}">Full method for ${escapeHtml(problem.technique.name)} &rarr;</a>
-        </p>
-      </div>
-    </details>`;
-}
-
-function render({ feedback = null, forceSolution = false } = {}) {
+function render({ feedback = null } = {}) {
   const problem = state.problem;
-  const showTechniqueName = config.techniques.length === 1 || state.phase === 'feedback' || state.revealed;
+  // In a mixed session the name is withheld until you have answered — spotting which
+  // method applies is part of the test.
+  const showTechniqueName = config.techniques.length === 1 || state.phase === 'feedback';
 
   root.innerHTML = `
     <div class="drill-bar">
@@ -226,21 +200,11 @@ function render({ feedback = null, forceSolution = false } = {}) {
                value="${state.phase === 'feedback' ? escapeHtml(feedback?.given ?? '') : ''}">
         <button class="btn btn--primary" type="submit">${state.phase === 'feedback' ? 'Next' : 'Check'}</button>
       </div>
-      <div class="answer-hint">
-        ${state.phase === 'feedback'
-          ? 'Press <kbd>Enter</kbd> for the next problem.'
-          : `Answer: ${escapeHtml(problem.answerHint)}.`}
-      </div>
     </form>
 
     ${feedback ? feedbackHtml(feedback, problem) : ''}
-    ${feedback || state.revealed ? solutionHtml(problem, forceSolution || (feedback && !feedback.correct)) : ''}
 
-    <p class="shortcuts">
-      <kbd>Enter</kbd> check / next &nbsp;·&nbsp;
-      <kbd>?</kbd> then <kbd>Enter</kbd> reveals the solution &nbsp;·&nbsp;
-      <kbd>Esc</kbd> ends the session
-    </p>`;
+    <p class="shortcuts"><kbd>Enter</kbd> check / next &nbsp;·&nbsp; <kbd>Esc</kbd> end</p>`;
 
   const input = root.querySelector('#answer');
   if (state.phase === 'answering') input.focus();
@@ -259,7 +223,6 @@ function feedbackHtml(feedback, problem) {
     return `
       <div class="feedback feedback--correct">
         <strong>Correct</strong>
-        ${state.revealed ? '<span class="muted">— after a reveal, so it does not count for speed</span>' : ''}
         <span class="timing">${formatSeconds(feedback.elapsedMs)}</span>
       </div>`;
   }
@@ -275,7 +238,7 @@ function feedbackHtml(feedback, problem) {
 function renderSummary() {
   const total = state.results.length;
   const correct = state.results.filter((r) => r.correct).length;
-  const timed = state.results.filter((r) => r.correct && !r.revealed).map((r) => r.elapsedMs);
+  const timed = state.results.filter((r) => r.correct).map((r) => r.elapsedMs);
   const accuracy = total ? Math.round((correct / total) * 100) : 0;
   const missed = state.results.filter((r) => !r.correct);
   const slowest = state.results.slice().sort((a, b) => b.elapsedMs - a.elapsedMs).slice(0, 3);
@@ -365,5 +328,5 @@ document.addEventListener('keydown', (event) => {
 
 // Sanity check for a hand-edited URL listing an unknown technique.
 if (params.get('t') && config.techniques.length < params.get('t').split(',').length) {
-  console.warn('Some technique ids in the URL are not drillable. Known ids:', DRILLS.map((t) => t.id));
+  console.warn('Some technique ids in the URL were not recognised. Known ids:', TECHNIQUES.map((t) => t.id));
 }

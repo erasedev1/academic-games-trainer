@@ -4,6 +4,7 @@ import { TECHNIQUES } from './techniques/index.js';
 import { clearStats, exportStats, importStats, loadStats } from './storage.js';
 import { escapeHtml, formatSeconds, median } from './lib/format.js';
 import { MIN_SAMPLES, weakReason, weakSpots } from './weakness.js';
+import { levelProgress } from './levels.js';
 
 const root = document.getElementById('stats');
 const DIFFICULTIES = ['easy', 'medium', 'hard'];
@@ -46,6 +47,8 @@ function render() {
       <div class="stat-tile"><div class="label">Median</div><div class="value">${totals.times.length ? formatSeconds(median(totals.times)) : '—'}</div><div class="sub">per solve</div></div>
       <div class="stat-tile"><div class="label">Best streak</div><div class="value">${totals.longestStreak}</div><div class="sub">in a row</div></div>
     </div>
+
+    ${levelsSection(data)}
 
     <h2 class="section-title">By technique</h2>
     <div class="card table-scroll">
@@ -112,6 +115,41 @@ function render() {
     </div>`;
 
   wireDataButtons();
+}
+
+/** Where each technique's adaptive level currently sits, and how the window is going. */
+function levelsSection(data) {
+  const touched = TECHNIQUES.filter((technique) =>
+    DIFFICULTIES.some((d) => data.techniques[`${technique.id}:${d}`]?.attempts));
+  if (!touched.length) return '';
+
+  return `
+    <h2 class="section-title">Levels</h2>
+    <div class="card table-scroll">
+      <table>
+        <thead><tr><th>Technique</th><th>Level</th><th class="num">At this level</th><th>Next move</th></tr></thead>
+        <tbody>
+          ${touched.map((technique) => {
+            const progress = levelProgress(data.levels ?? {}, technique.id);
+            const accuracy = progress.accuracy === null ? null : Math.round(progress.accuracy * 100);
+            return `
+              <tr>
+                <td>${escapeHtml(technique.name)}</td>
+                <td><span class="level-pill level-pill--${progress.level}">${progress.level}</span></td>
+                <td class="num">${progress.attempts}</td>
+                <td class="muted">${progress.needed
+                  ? `${progress.needed} more to judge`
+                  : accuracy === null ? '—' : `${accuracy}% in the window`}</td>
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+    <p class="answer-hint">
+      Adaptive sessions run each technique at its own level: 85% over the recent window
+      moves you up, 55% or less moves you down.
+      <a href="drill.html?focus=weak&amp;mode=sprint&amp;d=adaptive&amp;limit=60">Adaptive weak-point sprint &rarr;</a>
+    </p>`;
 }
 
 /** The specific numbers costing you the most, and how many are still being measured. */

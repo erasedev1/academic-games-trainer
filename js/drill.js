@@ -3,8 +3,9 @@
 import { getTechnique, TECHNIQUES } from './techniques/index.js';
 import { createRng, randomSeed } from './lib/rng.js';
 import { escapeHtml, formatClock, formatSeconds, median } from './lib/format.js';
-import { loadStats, recordAttempt, recordSession } from './storage.js';
+import { loadLevels, loadStats, recordAttempt, recordLevelResult, recordSession } from './storage.js';
 import { createWeakPicker, focusTechniques } from './weakness.js';
+import { levelChangeText, levelOf } from './levels.js';
 
 const root = document.getElementById('drill');
 const params = new URLSearchParams(window.location.search);
@@ -22,12 +23,14 @@ const config = {
   // list, it targets the weak points inside those instead.
   techniques: weakFocus && !chosen.length ? focusTechniques(loadStats()) : chosen,
   mode: ['sprint', 'set', 'endless'].includes(params.get('mode')) ? params.get('mode') : 'sprint',
-  difficulty: ['easy', 'medium', 'hard'].includes(params.get('d')) ? params.get('d') : 'medium',
+  // "adaptive" means each technique runs at its own level, which moves as you answer.
+  difficulty: ['easy', 'medium', 'hard', 'adaptive'].includes(params.get('d')) ? params.get('d') : 'medium',
   limit: Number(params.get('limit')) || (params.get('mode') === 'set' ? 10 : 60),
   seed: Number(params.get('seed')) || randomSeed(),
 };
 
 const picker = weakFocus ? createWeakPicker(loadStats(), config.techniques) : null;
+const adaptive = config.difficulty === 'adaptive';
 
 const state = {
   rng: createRng(config.seed),
@@ -37,7 +40,16 @@ const state = {
   sessionStart: Date.now(),
   results: [],
   finished: false,
+  // Held in memory so the level a problem is generated at is the one it is recorded
+  // against, even though a move can land between two problems.
+  levels: loadLevels(),
+  levelMoves: [],
 };
+
+/** The level to set the next problem at, for this technique. */
+function levelFor(techniqueId) {
+  return adaptive ? levelOf(state.levels, techniqueId) : config.difficulty;
+}
 
 if (!config.techniques.length) {
   root.innerHTML = `
@@ -71,10 +83,11 @@ function remainingMs() {
 
 function nextProblem() {
   const technique = picker ? picker.pickTechnique(state.rng) : state.rng.pick(config.techniques);
+  const difficulty = levelFor(technique.id);
   const problem = picker
-    ? picker.pickProblem(technique, config.difficulty, state.rng)
-    : technique.generate(config.difficulty, state.rng);
-  state.problem = { ...problem, technique };
+    ? picker.pickProblem(technique, difficulty, state.rng)
+    : technique.generate(difficulty, state.rng);
+  state.problem = { ...problem, technique, difficulty };
   state.phase = 'answering';
   state.startedAt = Date.now();
 }
@@ -130,12 +143,23 @@ function submit(raw) {
   });
   recordAttempt({
     techniqueId: state.problem.technique.id,
-    difficulty: config.difficulty,
+    difficulty: state.problem.difficulty,
     correct: result.correct,
     elapsedMs,
     tags: state.problem.tags ?? [],
   });
-  render({ feedback: { ...result, elapsedMs, given: text } });
+
+  let move = null;
+  if (adaptive) {
+    const technique = state.problem.technique;
+    const outcome = recordLevelResult(technique.id, state.problem.difficulty, result.correct);
+    state.levels[technique.id] = { ...state.levels[technique.id], level: outcome.level };
+    if (outcome.changed) {
+      move = { name: technique.name, direction: outcome.changed, level: outcome.level };
+      state.levelMoves.push(move);
+    }
+  }
+  render({ feedback: { ...result, elapsedMs, given: text, move } });
 
   if (config.mode === 'set' && state.results.length >= config.limit) {
     // Let the last answer land on screen before the summary replaces it.
@@ -161,6 +185,7 @@ function finish() {
     mode: config.mode,
     difficulty: config.difficulty,
     techniques: config.techniques.map((t) => t.id),
+    levelMoves: state.levelMoves.length,
     total: state.results.length,
     correct: state.results.filter((r) => r.correct).length,
     medianMs: median(times),
@@ -213,6 +238,11 @@ function render({ feedback = null } = {}) {
         <span class="meter-label">Streak</span>
         <span class="meter-value" data-meter="streak">${currentStreak()}</span>
       </div>
+      ${adaptive ? `
+        <div>
+          <span class="meter-label">Level</span>
+          <span class="meter-value">${escapeHtml(problem.difficulty)}</span>
+        </div>` : ''}
       <div class="spacer"></div>
       <button class="btn btn--small btn--ghost" type="button" data-action="end">End</button>
     </div>
@@ -236,6 +266,7 @@ function render({ feedback = null } = {}) {
     </form>
 
     ${feedback ? feedbackHtml(feedback, problem) : ''}
+    ${feedback?.move ? `<p class="level-move">${escapeHtml(levelChangeText(feedback.move.name, feedback.move.direction, feedback.move.level))}</p>` : ''}
     ${feedback && problem.steps?.length ? solutionHtml(problem, !feedback.correct) : ''}
 
     <p class="shortcuts"><kbd>Enter</kbd> check / next &nbsp;·&nbsp; <kbd>Esc</kbd> end</p>`;
@@ -286,6 +317,12 @@ function renderSummary() {
       ${escapeHtml(config.difficulty)} ·
       ${config.mode === 'sprint' ? `${config.limit}s sprint` : config.mode === 'set' ? `set of ${config.limit}` : 'endless'}
     </p>
+
+    ${state.levelMoves.length ? `
+      <div class="card level-moves">
+        <h3 class="section-title" style="margin:0 0 8px">Levels moved</h3>
+        <ul>${state.levelMoves.map((m) => `<li>${escapeHtml(levelChangeText(m.name, m.direction, m.level))}</li>`).join('')}</ul>
+      </div>` : ''}
 
     <div class="summary-grid">
       <div class="stat-tile"><div class="label">Correct</div><div class="value">${correct}/${total}</div><div class="sub">${accuracy}% accuracy</div></div>

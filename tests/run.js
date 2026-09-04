@@ -12,7 +12,8 @@ import { parseAnswer } from '../js/lib/format.js';
 import { createRng } from '../js/lib/rng.js';
 import { TECHNIQUES } from '../js/techniques/index.js';
 import { BASES, exponentFor } from '../js/techniques/eg-bases.js';
-import { DIGITS, MODULI } from '../js/techniques/shared.js';
+import { DIFFICULTIES, DIGITS, MODULI } from '../js/techniques/shared.js';
+import { applyResult, levelChangeText, levelOf, levelProgress, START_LEVEL } from '../js/levels.js';
 import { SUPER_MODULI } from '../js/techniques/cycling-super.js';
 import { VIABLE_PAIRS } from '../js/techniques/cycling-alain.js';
 import {
@@ -605,6 +606,130 @@ check('hasEnoughData rejects an empty history',
   check('an untried technique outranks a strong one',
     scores.get('eg-first') > scores.get('cycling-regular'));
   equal('focus returns the requested number of techniques', focusTechniques(history, { count: 3 }).length, 3);
+}
+
+// --- adaptive difficulty ---------------------------------------------------
+
+console.log('adaptive difficulty');
+
+/** Feeds a run of results in at whatever level the technique currently sits at. */
+function play(entry, results, atLevel = null) {
+  const moves = [];
+  let current = entry;
+  for (const correct of results) {
+    const outcome = applyResult(current, atLevel ?? current.level, correct);
+    if (outcome.changed) moves.push({ to: outcome.entry.level, direction: outcome.changed });
+    current = outcome.entry;
+  }
+  return { entry: current, moves };
+}
+
+const fresh = { level: START_LEVEL, recent: [] };
+equal('a technique starts in the middle', START_LEVEL, 'medium');
+equal('an unseen technique reads as the start level', levelOf({}, 'cycling-regular'), 'medium');
+
+// Not enough evidence yet: five perfect answers must not move anything.
+{
+  const { entry, moves } = play(fresh, [1, 1, 1, 1, 1]);
+  equal('five right is not yet enough to promote', moves.length, 0);
+  equal('and the level holds', entry.level, 'medium');
+  equal('but the window is filling', entry.attempts ?? entry.recent.length, 5);
+}
+
+// Six clean answers is enough.
+{
+  const { entry, moves } = play(fresh, [1, 1, 1, 1, 1, 1]);
+  equal('six right promotes', moves.length, 1);
+  equal('to hard', entry.level, 'hard');
+  equal('and the window is cleared for the new level', entry.recent.length, 0);
+}
+
+// Struggling drops you back.
+{
+  const { entry, moves } = play(fresh, [0, 0, 0, 1, 0, 0]);
+  equal('mostly wrong demotes', moves.length, 1);
+  equal('to easy', entry.level, 'easy');
+  equal('moving down, not up', moves[0].direction, 'down');
+}
+
+// The middle band holds steady — this is most of the time, and it must not oscillate.
+{
+  const { moves } = play(fresh, [1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0]);
+  equal('a middling run leaves the level alone', moves.length, 0);
+}
+
+// Ceiling and floor.
+{
+  const atHard = play({ level: 'hard', recent: [] }, [1, 1, 1, 1, 1, 1, 1, 1]);
+  equal('hard is the ceiling', atHard.entry.level, 'hard');
+  equal('and no move is reported', atHard.moves.length, 0);
+  const atEasy = play({ level: 'easy', recent: [] }, [0, 0, 0, 0, 0, 0, 0, 0]);
+  equal('easy is the floor', atEasy.entry.level, 'easy');
+  equal('and no move is reported there either', atEasy.moves.length, 0);
+}
+
+// Results at some other level are real evidence about that level, but say nothing about
+// whether the pointer should move from where it is.
+{
+  const { entry, moves } = play(fresh, [1, 1, 1, 1, 1, 1, 1, 1], 'easy');
+  equal('acing easy does not move a pointer sitting at medium', moves.length, 0);
+  equal('and the window stays empty', entry.recent.length, 0);
+}
+
+// A full climb and a full fall, so the whole ladder is exercised.
+{
+  const climb = play({ level: 'easy', recent: [] }, Array(12).fill(1));
+  equal('a clean run climbs easy to hard', climb.entry.level, 'hard');
+  equal('in two moves', climb.moves.length, 2);
+  const fall = play({ level: 'hard', recent: [] }, Array(12).fill(0));
+  equal('a bad run falls hard to easy', fall.entry.level, 'easy');
+  equal('in two moves', fall.moves.length, 2);
+}
+
+// The promote and demote bands must not overlap, or a window could argue for both and the
+// level would depend on evaluation order. Walk every possible ten-result window.
+{
+  let overlap = 0;
+  const outcomes = [];
+  for (let correct = 0; correct <= 10; correct++) {
+    const window = [...Array(correct).fill(1), ...Array(10 - correct).fill(0)];
+    // Nine in the window, then the tenth arrives and the decision is made.
+    const { entry, changed } = applyResult({ level: 'medium', recent: window.slice(0, 9) }, 'medium', window[9]);
+    outcomes.push({ correct, changed, level: entry.level });
+    if (changed === 'up' && correct / 10 < 0.85) overlap++;
+    if (changed === 'down' && correct / 10 > 0.55) overlap++;
+  }
+  equal('no window both promotes and demotes', overlap, 0);
+  const promoting = outcomes.filter((o) => o.changed === 'up').map((o) => o.correct);
+  const demoting = outcomes.filter((o) => o.changed === 'down').map((o) => o.correct);
+  const holding = outcomes.filter((o) => !o.changed).map((o) => o.correct);
+  check('only near-perfect windows promote', promoting.every((c) => c >= 9), `promoted at ${promoting}`);
+  check('only bad windows demote', demoting.every((c) => c <= 5), `demoted at ${demoting}`);
+  check('there is a band in between where nothing moves', holding.length >= 3, `held at ${holding}`);
+  check('promotion is stricter than demotion',
+    Math.min(...promoting) / 10 - 0.5 > 0.5 - Math.max(...demoting) / 10 - 0.0001);
+}
+
+// levelProgress drives the stats page, so it has to describe a fresh technique sanely.
+{
+  const progress = levelProgress({}, 'cycling-regular');
+  equal('a fresh technique reports the start level', progress.level, 'medium');
+  equal('with nothing measured', progress.attempts, 0);
+  equal('and says how many are needed', progress.needed, 6);
+  check('it can move either way from the middle', progress.canPromote && progress.canDemote);
+  const atHard = levelProgress({ x: { level: 'hard', recent: [1] } }, 'x');
+  check('hard cannot promote further', !atHard.canPromote && atHard.canDemote);
+}
+
+check('a level move reads as a sentence',
+  levelChangeText('Alain Cycling', 'up', 'hard') === 'Alain Cycling moved up to hard');
+
+// Every level the ladder can produce must be a level the generators accept.
+for (const level of DIFFICULTIES) {
+  for (const technique of TECHNIQUES) {
+    const problem = technique.generate(level, createRng(8));
+    check(`${technique.id} generates at ${level}`, Boolean(problem?.promptHtml));
+  }
 }
 
 // --- report ----------------------------------------------------------------

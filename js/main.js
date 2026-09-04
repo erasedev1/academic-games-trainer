@@ -2,6 +2,7 @@
 
 import { FAMILIES, getTechnique, techniquesInFamily } from './techniques/index.js';
 import { getRecord, loadPreferences, loadStats, savePreferences } from './storage.js';
+import { levelOf } from './levels.js';
 import { escapeHtml, formatSeconds, median } from './lib/format.js';
 import { hasEnoughData, weakList, weakReason } from './weakness.js';
 
@@ -26,10 +27,12 @@ const state = {
   selected: new Set(savedSelection.length ? savedSelection : ['cycling-regular']),
   mode: prefs.mode ?? 'sprint',
   limit: prefs.limit ?? 60,
-  difficulty: prefs.difficulty ?? 'medium',
+  // Adaptive by default: it finds the right level per technique on its own.
+  difficulty: prefs.difficulty ?? 'adaptive',
 };
 
 const stats = loadStats();
+const levels = stats.levels ?? {};
 const families = document.getElementById('families');
 const weakCard = document.getElementById('weak-points');
 const modeGroup = document.getElementById('mode');
@@ -38,13 +41,20 @@ const difficultyGroup = document.getElementById('difficulty');
 const summary = document.getElementById('selection-summary');
 const startButton = document.getElementById('start');
 
-/** A one-line "you've done this N times, median 4.2s" for a technique card. */
+/**
+ * A one-line "you've done this N times, median 4.2s" for a technique card. On adaptive it
+ * leads with the level the technique currently sits at, since that is the thing that moves.
+ */
 function recordSummary(techniqueId) {
-  const record = getRecord(stats, techniqueId, state.difficulty);
-  if (!record.attempts) return '—';
+  const adaptive = state.difficulty === 'adaptive';
+  const level = adaptive ? levelOf(levels, techniqueId) : state.difficulty;
+  const record = getRecord(stats, techniqueId, level);
+  const prefix = adaptive ? `${level}` : '';
+  if (!record.attempts) return prefix || '—';
   const accuracy = Math.round((record.correct / record.attempts) * 100);
   const mid = median(record.times);
-  return `${record.attempts} attempted · ${accuracy}% · ${mid === null ? '—' : `median ${formatSeconds(mid)}`}`;
+  const tail = `${record.attempts} at this level · ${accuracy}% · ${mid === null ? '—' : formatSeconds(mid)}`;
+  return prefix ? `${prefix} · ${tail}` : tail;
 }
 
 function renderFamilies() {
@@ -85,9 +95,13 @@ function syncSegmented(group, value) {
 function renderSummary() {
   const count = state.selected.size;
   startButton.disabled = count === 0;
+  const mixed = count === 1 ? '' : `${count} techniques, interleaved.`;
+  const adaptiveNote = state.difficulty === 'adaptive'
+    ? 'Each technique runs at its own level and moves as you answer.'
+    : '';
   summary.textContent = count === 0
     ? 'Pick at least one.'
-    : count === 1 ? '' : `${count} techniques, interleaved.`;
+    : [mixed, adaptiveNote].filter(Boolean).join(' ');
 }
 
 function refreshStatLines() {
@@ -139,6 +153,7 @@ difficultyGroup.addEventListener('click', (event) => {
   state.difficulty = button.value;
   syncSegmented(difficultyGroup, state.difficulty);
   refreshStatLines();
+  renderSummary();
   persist();
 });
 

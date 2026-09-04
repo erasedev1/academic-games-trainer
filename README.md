@@ -14,8 +14,9 @@ Super `a^(b^c)` · Super Duper `a^(b^c^d^e)` · Alain `(a^b)/c mod k` via CRT
 **Number of Factors** — Main Principle `x(n)` · First, Second and Third Ex-Girlfriend ·
 Ex-Girlfriend Improved · Ex-Girlfriend Base 8, 9, 11
 
-Three difficulty levels each, and any set of techniques can be interleaved so you have to
-recognise which method applies before you can solve.
+Three difficulty levels each — set by hand, or left to adapt per technique — and any set of
+techniques can be interleaved so you have to recognise which method applies before you can
+solve.
 
 ## Weak points
 
@@ -41,6 +42,28 @@ have never tried rank mid-pack, so a weak session also covers new ground.
 Nothing appears until there is enough history to justify it: for the first few sessions the
 panel names whole techniques, and it switches to specific numbers once you have met them
 four times or more.
+
+## Adaptive difficulty
+
+Each technique carries **its own level**, and it moves as you answer. A session can be
+running you at hard on the lambda drill and easy on Alain cycling at the same time, which
+is the point — the levels are independent because your command of the techniques is.
+
+The rule is deliberately plain: over a rolling window of the last ten problems at the
+technique's current level, 85% or better moves you up, 55% or worse moves you down, and it
+takes six results before the window is read at all. The window clears on a move, so the new
+level is judged on its own evidence rather than inheriting the run that triggered the
+change. Techniques start at medium, so it takes the same effort to move either way.
+
+Only results at the technique's *current* level count. Playing a fixed-difficulty session
+is real evidence about that level and is recorded as such, but it does not shove the
+adaptive pointer around — so picking "Hard" for a session never has surprising
+after-effects.
+
+Speed is deliberately not part of the level rule. A time threshold would have to be
+absolute, and there is no honest absolute target that works across techniques ranging from
+λ(9) to a four-storey tower. Accuracy at a level is the signal; speed is what the weak-point
+analysis reads.
 
 **Formats:** 30s/60s/2min sprint · sets of 10, 20 or 50 · endless.
 <kbd>Enter</kbd> checks and advances, <kbd>Esc</kbd> ends.

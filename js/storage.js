@@ -1,8 +1,10 @@
 // Everything the trainer remembers, kept in localStorage under one versioned key.
 
+import { applyResult } from './levels.js';
+
 const KEY = 'agt:v1';
 
-const EMPTY = { version: 1, techniques: {}, tags: {}, sessions: [] };
+const EMPTY = { version: 1, techniques: {}, tags: {}, levels: {}, sessions: [] };
 
 /** localStorage throws in private mode and some embedded views — never let that break a drill. */
 function readRaw() {
@@ -28,6 +30,22 @@ function writeRaw(data) {
 
 export function loadStats() {
   return readRaw();
+}
+
+export function loadLevels() {
+  return readRaw().levels ?? {};
+}
+
+/**
+ * Folds one result into a technique's adaptive level and persists it. Returns the new
+ * level and whether it moved, so the drill can say so on screen.
+ */
+export function recordLevelResult(techniqueId, difficulty, correct) {
+  const data = readRaw();
+  const { entry, changed } = applyResult(data.levels[techniqueId], difficulty, correct);
+  data.levels[techniqueId] = entry;
+  writeRaw(data);
+  return { level: entry.level, changed };
 }
 
 function blankRecord() {

@@ -219,6 +219,7 @@ function render({ feedback = null, forceSolution = false } = {}) {
     <form id="answer-form" autocomplete="off">
       <div class="answer-row">
         <input id="answer" name="answer" type="text" inputmode="text"
+               aria-label="Your answer"
                spellcheck="false" autocapitalize="off"
                placeholder="${escapeHtml(problem.answerHint)}"
                ${state.phase === 'feedback' ? 'disabled' : ''}

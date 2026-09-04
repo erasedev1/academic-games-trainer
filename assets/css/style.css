@@ -15,7 +15,6 @@
   --good-soft: #e2f4ea;
   --bad: #b3251f;
   --bad-soft: #fce9e8;
-  --warn: #8a5a00;
 
   --radius: 12px;
   --shadow: 0 1px 2px rgb(16 20 32 / 6%), 0 8px 24px rgb(16 20 32 / 5%);
@@ -37,12 +36,12 @@
     --good-soft: #14301f;
     --bad: #ff8b83;
     --bad-soft: #35191a;
-    --warn: #e0b155;
     --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 30%);
   }
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 body {
   margin: 0;

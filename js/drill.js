@@ -171,6 +171,24 @@ function finish() {
 
 // --- rendering -------------------------------------------------------------
 
+/**
+ * The worked solution, shown once you have answered. Collapsed when you got it right —
+ * you only need it when you did not — and opened automatically when you did not.
+ */
+function solutionHtml(problem, open) {
+  return `
+    <details class="solution"${open ? ' open' : ''}>
+      <summary>Step-by-step solution</summary>
+      <div class="solution-body">
+        ${problem.steps.map((step) => `
+          <div class="solution-step">
+            <h4 class="expr">${step.title}</h4>
+            ${step.lines.map((line) => `<div class="line expr">${line}</div>`).join('')}
+          </div>`).join('')}
+      </div>
+    </details>`;
+}
+
 function render({ feedback = null } = {}) {
   const problem = state.problem;
   // In a mixed session the name is withheld until you have answered — spotting which
@@ -218,6 +236,7 @@ function render({ feedback = null } = {}) {
     </form>
 
     ${feedback ? feedbackHtml(feedback, problem) : ''}
+    ${feedback && problem.steps?.length ? solutionHtml(problem, !feedback.correct) : ''}
 
     <p class="shortcuts"><kbd>Enter</kbd> check / next &nbsp;·&nbsp; <kbd>Esc</kbd> end</p>`;
 

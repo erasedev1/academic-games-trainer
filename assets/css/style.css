@@ -371,6 +371,29 @@ kbd {
   background: var(--surface-2);
 }
 
+.solution { margin-top: 16px; }
+.solution > summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+.solution > summary:hover { color: var(--text); }
+.solution-body {
+  margin-top: 12px;
+  padding: 16px 18px;
+  background: var(--surface-2);
+  border-radius: 10px;
+}
+.solution-step + .solution-step { margin-top: 14px; }
+.solution-step h4 {
+  margin: 0 0 4px;
+  font-size: 0.88rem;
+  font-weight: 650;
+  color: var(--muted);
+}
+.solution-step .line { font-size: 0.98rem; padding: 1px 0; }
+
 /* --- summary and stats --------------------------------------------------- */
 
 .summary-grid {

@@ -9,12 +9,12 @@
 // reaches perfect squares.
 
 import { pow, xOf } from '../lib/format.js';
-import { byDifficulty, intOrNoneCheck, tag } from './shared.js';
+import { byDifficulty, intOrNoneCheck, step, tag } from './shared.js';
 
 export const BASES = {
-  8: { multiplier: 3, valid: (a) => a % 3 === 1 },
-  9: { multiplier: 2, valid: (a) => a % 2 === 1 },
-  11: { multiplier: 1, valid: () => true },
+  8: { multiplier: 3, factor: '2<sup>3</sup>', expanded: '2<sup>3n</sup>', rule: 'a &equiv; 1 (mod 3)', valid: (a) => a % 3 === 1 },
+  9: { multiplier: 2, factor: '3<sup>2</sup>', expanded: '3<sup>2n</sup>', rule: 'a to be odd', valid: (a) => a % 2 === 1 },
+  11: { multiplier: 1, factor: '11', expanded: '11<sup>n</sup>', rule: 'nothing at all', valid: () => true },
 };
 
 const CONFIG = {
@@ -34,6 +34,7 @@ export function exponentFor(base, a) {
 export function generate(difficulty, rng) {
   const cfg = byDifficulty(CONFIG, difficulty);
   const base = rng.pick(cfg.bases);
+  const info = BASES[base];
   // Base 11 reaches every integer, so there is no impossible target to ask for there.
   const allowImpossible = base !== 11 && rng() < cfg.impossible;
   const a = rng.until(
@@ -52,6 +53,22 @@ export function generate(difficulty, rng) {
     params: { base, a },
     tags: [tag(`base:${base}`, `base ${base}`), tag(answer === null ? 'reach:no' : 'reach:yes', answer === null ? 'spotting an unreachable target' : 'reachable targets')],
     check: intOrNoneCheck(answer),
+    steps: [
+      step('1. Factor the base', `${base}<sup>n</sup> = (${info.factor})<sup>n</sup> = ${info.expanded}`),
+      step('2. Apply the main principle', `${xOf(pow(base, 'n'))} = ${info.multiplier === 1 ? 'n + 1' : `${info.multiplier}n + 1`}`),
+      answer === null
+        ? step(
+            '3. Check the target',
+            `${info.multiplier}n + 1 = ${a} has no whole-number solution &mdash; base ${base} needs ${info.rule}.`,
+            `<strong>Not representable in base ${base}.</strong>`,
+          )
+        : step(
+            '3. Solve for n',
+            `${info.multiplier === 1 ? '' : info.multiplier}n = ${a} &minus; 1 = ${a - 1}`,
+            `n = ${info.multiplier === 1 ? a - 1 : `${a - 1} / ${info.multiplier} = ${answer}`}`,
+            `<strong>n = ${answer}</strong>`,
+          ),
+    ],
   };
 }
 

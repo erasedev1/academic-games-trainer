@@ -46,6 +46,11 @@ export function mod(value, m) {
   return ((value % m) + m) % m;
 }
 
+/** A step in the worked solution shown after you answer. `lines` are HTML fragments. */
+export function step(title, ...lines) {
+  return { title, lines: lines.flat().filter(Boolean) };
+}
+
 export const DIFFICULTIES = ['easy', 'medium', 'hard'];
 
 /**

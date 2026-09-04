@@ -1,8 +1,8 @@
 // Super Cycling — a^(b^c) mod k: a cycle inside a cycle.
 
-import { carmichael, gcd, modPow } from '../lib/math.js';
-import { mod as modHtml, tower } from '../lib/format.js';
-import { byDifficulty, DIGITS, intCheck, MODULI, tag } from './shared.js';
+import { carmichael, gcd, isPrime, modPow } from '../lib/math.js';
+import { lambda as lambdaHtml, mod as modHtml, pow, tower } from '../lib/format.js';
+import { byDifficulty, DIGITS, intCheck, MODULI, step, tag } from './shared.js';
 
 /**
  * Super cycling needs a second lambda step inside the first, so λ(λ(k)) has to be worth
@@ -48,6 +48,40 @@ export function towerAnswer({ a, b, k, exponent }) {
   return modPow(a, modPow(b % n, exponent, n), k);
 }
 
+/** The worked solution shared by super and super duper: reduce b, the tower, then evaluate. */
+export function towerSteps({ a, b, k, exponent, exponentLabel }) {
+  const n = carmichael(k);
+  const bReduced = b % n;
+  const innerLambda = carmichael(n);
+  const expReduced = exponent % innerLambda;
+  const m = modPow(bReduced, exponent, n);
+
+  return [
+    step(
+      `Compute ${lambdaHtml('k')}, n, and reduce b`,
+      isPrime(k) ? `${lambdaHtml(k)} = ${k} &minus; 1 = ${n}` : `${lambdaHtml(k)} = ${n}`,
+      `${b} mod ${n} = ${bReduced}`,
+    ),
+    step(
+      `Compute ${modHtml(pow('b', exponentLabel), 'n')}, m`,
+      `${modHtml(pow(bReduced, exponent), n)}`,
+      `${lambdaHtml(n)} = ${innerLambda}`,
+      `${exponent} mod ${innerLambda} = ${expReduced}`,
+      `${pow(bReduced, expReduced === 0 ? `0 &rarr; ${innerLambda}` : expReduced)} &rarr; m = ${m}`,
+    ),
+    step(
+      `Compute ${modHtml(pow('a', 'm'), 'k')}`,
+      `${modHtml(pow(a, m), k)} = ${modPow(a, m, k)}`,
+      `<strong>${modPow(a, m, k)}</strong>`,
+    ),
+  ];
+}
+
+/** Numbers a list of steps from 1, so super duper can prepend its own first step. */
+export function numbered(steps, from = 1) {
+  return steps.map((s, i) => ({ ...s, title: `${i + from}. ${s.title}` }));
+}
+
 export function generate(difficulty, rng) {
   const cfg = byDifficulty(CONFIG, difficulty);
   const { a, b, k } = pickBase(rng, cfg.b);
@@ -65,6 +99,7 @@ export function generate(difficulty, rng) {
     params: { a, b, c, k },
     tags: [tag(`k:${k}`, `mod ${k}`), tag(`b:${b}`, `tower base ${b}`)],
     check: intCheck(answer),
+    steps: numbered(towerSteps({ a, b, k, exponent: c, exponentLabel: 'c' })),
   };
 }
 

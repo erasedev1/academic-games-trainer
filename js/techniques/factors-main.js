@@ -2,7 +2,7 @@
 
 import { divisorCount, factorize } from '../lib/math.js';
 import { pow, xOf } from '../lib/format.js';
-import { byDifficulty, intCheck, sizeTag, tag } from './shared.js';
+import { byDifficulty, intCheck, sizeTag, step, tag } from './shared.js';
 
 const CONFIG = {
   easy: { max: 100, primes: [2, 3, 5], exps: [1, 3], factoredForm: 0 },
@@ -35,6 +35,13 @@ export function generate(difficulty, rng) {
     params: { n },
     tags: [tag(`primes:${primes.join(',')}`, `primes ${primes.join(' \u00b7 ')}`), sizeTag(n), tag(showFactored ? 'form:factored' : 'form:plain', showFactored ? 'already factored' : 'factoring it yourself')],
     check: intCheck(answer),
+    steps: [
+      step('1. Prime factorize', `${n} = ${factored}`),
+      step(
+        '2. Add 1 to each exponent, multiply the results',
+        `${factors.map(({ e }) => `(${e} + 1)`).join('')} = ${factors.map(({ e }) => e + 1).join(' &middot; ')} = <strong>${answer}</strong>`,
+      ),
+    ],
   };
 }
 

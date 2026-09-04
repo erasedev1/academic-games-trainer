@@ -1,8 +1,8 @@
 // Alain Cycling — (a^b)/c mod k when the power is too big to simplify.
 
 import { carmichael, crt, gcd, modPow } from '../lib/math.js';
-import { frac, mod as modHtml, pow } from '../lib/format.js';
-import { byDifficulty, congruentNumeratorCheck, DIGITS, MODULI, tag } from './shared.js';
+import { frac, lambda as lambdaHtml, mod as modHtml, pow } from '../lib/format.js';
+import { byDifficulty, congruentNumeratorCheck, DIGITS, MODULI, step, tag } from './shared.js';
 
 /**
  * Alain cycling is the special-cycling case that blows up, which needs room for the
@@ -23,6 +23,14 @@ const CONFIG = {
   hard: { reps: [2, 8] },
 };
 
+/** The manual's additive ladder: 1 + 7 + 7 = 15. Collapses to a product when it gets long. */
+function ladder(start, stepSize, total) {
+  const times = (total - start) / stepSize;
+  if (times === 0) return `${start} already works`;
+  if (times <= 4) return `${start}${` + ${stepSize}`.repeat(times)} = ${total}`;
+  return `${start} + ${stepSize} &middot; ${times} = ${total}`;
+}
+
 export function generate(difficulty, rng) {
   const cfg = byDifficulty(CONFIG, difficulty);
   const { a, c, k, r } = rng.until(
@@ -36,7 +44,9 @@ export function generate(difficulty, rng) {
   );
   const ck = c * k;
   const b = r + carmichael(ck) * rng.int(cfg.reps[0], cfg.reps[1]);
-  const target = crt(modPow(a, b, c), c, modPow(a, b, k), k);
+  const n = modPow(a, b, c);
+  const m = modPow(a, b, k);
+  const target = crt(n, c, m, k);
 
   return {
     promptHtml: modHtml(frac(pow(a, b), c), k),
@@ -47,6 +57,20 @@ export function generate(difficulty, rng) {
     params: { a, b, c, k, ck },
     tags: [tag(`k:${k}`, `mod ${k}`), tag(`c:${c}`, `divisor ${c}`), tag(`ck:${ck}`, `CRT over ${ck}`)],
     check: congruentNumeratorCheck({ target, modulus: ck, den: c }),
+    steps: [
+      step(
+        'Why not special cycling',
+        `${lambdaHtml(ck)} = ${carmichael(ck)}, and ${b} mod ${carmichael(ck)} = ${r} &mdash; ${pow(a, r)} is far too big to expand by hand, so use CRT.`,
+      ),
+      step(`1. Compute ${modHtml(pow('a', 'b'), 'c')}, n`, `${modHtml(pow(a, b), c)} = ${n}`),
+      step(`2. Compute ${modHtml(pow('a', 'b'), 'k')}, m`, `${modHtml(pow(a, b), k)} = ${m}`),
+      step(
+        '3. Find a number congruent to n mod c and m mod k',
+        ladder(n, c, target),
+        ladder(m, k, target),
+        `<strong>${modHtml(frac(pow(a, b), c), k)} = ${frac(target, c)}</strong>`,
+      ),
+    ],
   };
 }
 

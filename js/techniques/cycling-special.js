@@ -1,8 +1,8 @@
 // Special Cycling — (a^b)/c mod k.
 
 import { carmichael, gcd, modPow } from '../lib/math.js';
-import { frac, mod as modHtml, pow } from '../lib/format.js';
-import { byDifficulty, congruentNumeratorCheck, DIGITS, MODULI, tag } from './shared.js';
+import { frac, lambda as lambdaHtml, mod as modHtml, pow } from '../lib/format.js';
+import { byDifficulty, congruentNumeratorCheck, DIGITS, MODULI, step, tag } from './shared.js';
 
 const CONFIG = {
   easy: { c: [2, 3, 5, 7], r: [2, 3], reps: [1, 3] },
@@ -25,7 +25,9 @@ export function generate(difficulty, rng) {
       a ** r <= 4000 && carmichael(c * k) > r,
   );
   const ck = c * k;
-  const b = r + carmichael(ck) * rng.int(cfg.reps[0], cfg.reps[1]);
+  const n = carmichael(ck);
+  const b = r + n * rng.int(cfg.reps[0], cfg.reps[1]);
+  const raised = a ** r;
   const target = modPow(a, b, ck);
 
   return {
@@ -37,6 +39,22 @@ export function generate(difficulty, rng) {
     params: { a, b, c, k, ck },
     tags: [tag(`k:${k}`, `mod ${k}`), tag(`c:${c}`, `divisor ${c}`), tag(`ck:${ck}`, `\u03bb(${ck})`)],
     check: congruentNumeratorCheck({ target, modulus: ck, den: c }),
+    steps: [
+      step(`1. Compute ${lambdaHtml('ck')}, n`, `c &middot; k = ${c} &middot; ${k} = ${ck}`, `${lambdaHtml(ck)} = ${n}`),
+      step(
+        `2. Compute ${modHtml(`(${pow('a', 'b mod n')})`, 'k')}`,
+        `${b} mod ${n} = ${r}`,
+        `${pow(a, r)} = ${raised}`,
+        raised === target
+          ? `${raised} is already below ${ck}, so it stands as the numerator.`
+          : `${modHtml(frac(raised, c), frac(ck, c))} = ${frac(target, c)} &nbsp;<span class="muted">(reduce the numerator mod ${ck}, keeping the denominator)</span>`,
+        `<strong>${modHtml(frac(pow(a, b), c), k)} = ${frac(target, c)}</strong>`,
+      ),
+      step(
+        'Any congruent numerator works',
+        `The goal is an exact value, not a residue: any N with N &equiv; ${pow(a, b)} (mod ${ck}) represents it, so ${target + ck} over ${c} is just as correct.`,
+      ),
+    ],
   };
 }
 

@@ -343,6 +343,24 @@ for (const technique of TECHNIQUES) {
         failures.push(`${technique.id}/${difficulty}: incomplete problem`);
         break;
       }
+      // A worked solution has to exist, be readable, and end by stating the answer —
+      // a walkthrough that trails off before the result is worse than none.
+      const steps = problem.steps ?? [];
+      if (!steps.length || steps.some((s) => !s.title || !s.lines.length)) {
+        failures.push(`${technique.id}/${difficulty}: missing or empty solution steps`);
+        break;
+      }
+      const walkthrough = steps.flatMap((s) => [s.title, ...s.lines]).join(' ');
+      if (/undefined|NaN|\[object/.test(walkthrough)) {
+        failures.push(`${technique.id}/${difficulty}: broken solution text — ${walkthrough.slice(0, 120)}`);
+        break;
+      }
+      const plain = (html) => html.replace(/<[^>]+>/g, '').replace(/&[a-z]+;/gi, ' ');
+      const finalAnswer = problem.answer === null ? 'Not representable' : String(problem.answer);
+      if (!steps.some((s) => s.lines.some((line) => plain(line).includes(finalAnswer)))) {
+        failures.push(`${technique.id}/${difficulty}: the solution never states the answer ${finalAnswer}`);
+        break;
+      }
       // Fraction answers: every congruent numerator is a correct representation.
       if (problem.params.ck) {
         const alt = problem.answer + problem.params.ck;

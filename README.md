@@ -43,7 +43,11 @@ panel names whole techniques, and it switches to specific numbers once you have 
 four times or more.
 
 **Formats:** 30s/60s/2min sprint · sets of 10, 20 or 50 · endless.
-<kbd>Enter</kbd> checks and advances, <kbd>Esc</kbd> ends. Stats are per technique and
+<kbd>Enter</kbd> checks and advances, <kbd>Esc</kbd> ends.
+
+Every answer is followed by a worked solution that follows the manual's own numbered
+method — the cycle written out, the λ computation, the CRT ladder. It opens automatically
+when you got the problem wrong and stays collapsed when you got it right. Stats are per technique and
 difficulty, kept in your browser's local storage — nothing is uploaded.
 
 ## Staying inside what the cubes can build

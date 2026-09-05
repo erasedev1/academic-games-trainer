@@ -2,7 +2,7 @@
 
 import { carmichael, gcd, isPrime, modPow } from '../lib/math.js';
 import { lambda as lambdaHtml, mod as modHtml, pow, tower } from '../lib/format.js';
-import { byDifficulty, DIGITS, intCheck, MODULI, step, tag } from './shared.js';
+import { byDifficulty, DIGITS, intCheck, MODULI, step, tag, WIDE_DIGITS } from './shared.js';
 
 /**
  * Super cycling needs a second lambda step inside the first, so λ(λ(k)) has to be worth
@@ -14,16 +14,26 @@ export const SUPER_MODULI = MODULI.filter((k) => carmichael(carmichael(k)) > 1);
 /** How often the inner power is allowed to collapse to 1, leaving the answer as just a. */
 export const TRIVIAL_SHARE = 0.25;
 
+/**
+ * The exponent c is not a difficulty axis: it is reduced mod λ(λ(k)), which is only ever 2
+ * or 4, so c = 200 is no more work than c = 8. Tuning on it left every level identical.
+ * What does vary is λ(k) — the size of the reduction you have to carry out — and whether
+ * the inner step has a real second layer. So the ladder is built from the modulus:
+ *
+ *   easy    mod 7, 9, 10   λ(k) = 6, 6, 4   λ(λ(k)) = 2   one trivial inner reduction
+ *   medium  adds mod 11
+ *   hard    mod 11 only    λ(k) = 10        λ(λ(k)) = 4   both layers are real work
+ */
 const CONFIG = {
-  easy: { b: DIGITS, c: [4, 20] },
-  medium: { b: [...DIGITS, 11, 12], c: [8, 60] },
-  hard: { b: [...DIGITS, 11, 12, 13], c: [20, 200] },
+  easy: { moduli: [7, 9, 10], b: DIGITS, c: [4, 20] },
+  medium: { moduli: SUPER_MODULI, b: [...DIGITS, 11, 12], c: [8, 60] },
+  hard: { moduli: [11], b: [...DIGITS, ...WIDE_DIGITS], c: [20, 200] },
 };
 
 /** a, b and k for either super technique: everything coprime, nothing pre-collapsed. */
-export function pickBase(rng, bPool) {
+export function pickBase(rng, bPool, moduli = SUPER_MODULI) {
   return rng.until(
-    () => ({ a: rng.pick(DIGITS), b: rng.pick(bPool), k: rng.pick(SUPER_MODULI) }),
+    () => ({ a: rng.pick(DIGITS), b: rng.pick(bPool), k: rng.pick(moduli) }),
     ({ a, b, k }) => {
       if (a % k <= 1) return false;
       const n = carmichael(k);
@@ -84,7 +94,7 @@ export function numbered(steps, from = 1) {
 
 export function generate(difficulty, rng) {
   const cfg = byDifficulty(CONFIG, difficulty);
-  const { a, b, k } = pickBase(rng, cfg.b);
+  const { a, b, k } = pickBase(rng, cfg.b, cfg.moduli);
   // When the tower reduces to 1 the answer is just a — a real case, but a poor drill if
   // it is most of them, so it is rationed rather than left to chance.
   const c = pickExponent(rng, k, b, () => rng.int(cfg.c[0], cfg.c[1]), rng() < TRIVIAL_SHARE);

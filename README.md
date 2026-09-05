@@ -12,7 +12,13 @@ Static site, no build step, no dependencies. Open `index.html` and it works.
 Super `a^(b^c)` · Super Duper `a^(b^c^d^e)` · Alain `(a^b)/c mod k` via CRT
 
 **Number of Factors** — Main Principle `x(n)` · First, Second and Third Ex-Girlfriend ·
-Ex-Girlfriend Improved · Ex-Girlfriend Base 8, 9, 11
+Ex-Girlfriend Improved · Ex-Girlfriend Base 8, 9, 11 · Reachable Bases
+
+**Reachable Bases** is the set-building side of the family: given a target, name every base
+that can build it with a single x cube. Each base factors differently and so reaches a
+different set of integers — `x(8^n) = 3n+1` needs `a ≡ 1 (mod 3)`, `x(9^n) = 2n+1` needs odd
+`a`, `x(10^n) = (n+1)²` needs a perfect square, and `x(11^n) = n+1` reaches everything. The
+answer is a set, typed as `9,11`; order, spacing and duplicates don't matter.
 
 Three difficulty levels each — set by hand, or left to adapt per technique — and any set of
 techniques can be interleaved so you have to recognise which method applies before you can
@@ -70,8 +76,30 @@ analysis reads.
 
 Every answer is followed by a worked solution that follows the manual's own numbered
 method — the cycle written out, the λ computation, the CRT ladder. It opens automatically
-when you got the problem wrong and stays collapsed when you got it right. Stats are per technique and
+when you got the problem wrong and stays collapsed when you got it right. Typing `?` before
+answering shows it up front; a problem you read the solution for still counts towards
+accuracy, but its time never lands in your records and it is left out of the adaptive level
+window entirely, since answering after reading says nothing about whether you are ready to
+move up. Stats are per technique and
 difficulty, kept in your browser's local storage — nothing is uploaded.
+
+## What the difficulty bands actually vary
+
+The bands are measured rather than guessed, and they move the thing that genuinely costs
+time in each technique:
+
+- **Regular cycling** — easy is cycles short enough to write out in four lines; medium
+  opens up the long ones; hard adds three-digit exponents and two-digit bases.
+- **Special cycling** — the size of `ck`, and whether the power lands above `ck` and so has
+  to be reduced. Tuning on `b` alone was pointless: it is reduced away immediately, which
+  had left all three levels statistically identical.
+- **Super and super duper** — the modulus, because the top exponent is reduced mod `λ(λ(k))`
+  and that is only ever 2 or 4, so `c = 200` is no more work than `c = 8`. Easy is mod 7,
+  9 and 10 where `λ(λ(k)) = 2`; hard is mod 11, the one case where both layers are real
+  work. Before this, medium was measurably *easier* than easy.
+- **Alain cycling** — the length of the CRT ladder, set by `c`, and the size of `ck`.
+- **Two-digit numerals** appear in the hard bands. They cost an extra cube, so they are
+  real but uncommon; easy and medium stay single-digit.
 
 ## Staying inside what the cubes can build
 

@@ -36,6 +36,7 @@ const state = {
   rng: createRng(config.seed),
   problem: null,
   phase: 'answering',
+  revealed: false,
   startedAt: 0,
   sessionStart: Date.now(),
   results: [],
@@ -89,6 +90,7 @@ function nextProblem() {
     : technique.generate(difficulty, state.rng);
   state.problem = { ...problem, technique, difficulty };
   state.phase = 'answering';
+  state.revealed = false;
   state.startedAt = Date.now();
 }
 
@@ -129,6 +131,7 @@ function submit(raw) {
   if (state.phase !== 'answering') return;
   const text = String(raw ?? '').trim();
   if (text === '') return;
+  if (text === '?') return reveal();
 
   const elapsedMs = Date.now() - state.startedAt;
   const result = state.problem.check(text);
@@ -136,6 +139,7 @@ function submit(raw) {
   state.results.push({
     correct: result.correct,
     elapsedMs,
+    revealed: state.revealed,
     techniqueId: state.problem.technique.id,
     promptHtml: state.problem.promptHtml,
     canonicalText: state.problem.canonicalText,
@@ -147,10 +151,13 @@ function submit(raw) {
     correct: result.correct,
     elapsedMs,
     tags: state.problem.tags ?? [],
+    revealed: state.revealed,
   });
 
   let move = null;
-  if (adaptive) {
+  // Answering after reading the walkthrough says nothing about whether you are ready to
+  // move up, so a revealed problem is left out of the level window entirely.
+  if (adaptive && !state.revealed) {
     const technique = state.problem.technique;
     const outcome = recordLevelResult(technique.id, state.problem.difficulty, result.correct);
     state.levels[technique.id] = { ...state.levels[technique.id], level: outcome.level };
@@ -159,12 +166,17 @@ function submit(raw) {
       state.levelMoves.push(move);
     }
   }
-  render({ feedback: { ...result, elapsedMs, given: text, move } });
+  render({ feedback: { ...result, elapsedMs, given: text, move, revealed: state.revealed } });
 
   if (config.mode === 'set' && state.results.length >= config.limit) {
     // Let the last answer land on screen before the summary replaces it.
     setTimeout(finish, 900);
   }
+}
+
+function reveal() {
+  state.revealed = true;
+  render();
 }
 
 function advance() {
@@ -178,7 +190,7 @@ function advance() {
 function finish() {
   if (state.finished) return;
   state.finished = true;
-  const times = state.results.filter((r) => r.correct).map((r) => r.elapsedMs);
+  const times = state.results.filter((r) => r.correct && !r.revealed).map((r) => r.elapsedMs);
   recordSession({
     at: Date.now(),
     focus: weakFocus ? 'weak' : null,
@@ -267,9 +279,15 @@ function render({ feedback = null } = {}) {
 
     ${feedback ? feedbackHtml(feedback, problem) : ''}
     ${feedback?.move ? `<p class="level-move">${escapeHtml(levelChangeText(feedback.move.name, feedback.move.direction, feedback.move.level))}</p>` : ''}
-    ${feedback && problem.steps?.length ? solutionHtml(problem, !feedback.correct) : ''}
+    ${(feedback || state.revealed) && problem.steps?.length
+      ? solutionHtml(problem, state.revealed || (feedback && !feedback.correct))
+      : ''}
 
-    <p class="shortcuts"><kbd>Enter</kbd> check / next &nbsp;·&nbsp; <kbd>Esc</kbd> end</p>`;
+    <p class="shortcuts">
+      <kbd>Enter</kbd> check / next &nbsp;·&nbsp;
+      <kbd>?</kbd> then <kbd>Enter</kbd> shows the solution &nbsp;·&nbsp;
+      <kbd>Esc</kbd> end
+    </p>`;
 
   const input = root.querySelector('#answer');
   if (state.phase === 'answering') input.focus();
@@ -288,6 +306,7 @@ function feedbackHtml(feedback, problem) {
     return `
       <div class="feedback feedback--correct">
         <strong>Correct</strong>
+        ${feedback.revealed ? '<span class="muted">— after a reveal, so it sets no record</span>' : ''}
         <span class="timing">${formatSeconds(feedback.elapsedMs)}</span>
       </div>`;
   }
@@ -303,7 +322,7 @@ function feedbackHtml(feedback, problem) {
 function renderSummary() {
   const total = state.results.length;
   const correct = state.results.filter((r) => r.correct).length;
-  const timed = state.results.filter((r) => r.correct).map((r) => r.elapsedMs);
+  const timed = state.results.filter((r) => r.correct && !r.revealed).map((r) => r.elapsedMs);
   const accuracy = total ? Math.round((correct / total) * 100) : 0;
   const missed = state.results.filter((r) => !r.correct);
   const slowest = state.results.slice().sort((a, b) => b.elapsedMs - a.elapsedMs).slice(0, 3);

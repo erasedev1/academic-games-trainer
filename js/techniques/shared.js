@@ -41,6 +41,24 @@ export function intOrNoneCheck(answer) {
   };
 }
 
+/**
+ * Grades an answer that is a set of numbers — "8,9,11", "8 9 11", "9, 11".
+ * Order does not matter and duplicates are ignored, since a set is what was asked for.
+ */
+export function numberSetCheck(answer) {
+  const wanted = [...new Set(answer)].sort((a, b) => a - b).join(',');
+  return (raw) => {
+    const text = String(raw ?? '').trim();
+    if (!text) return { correct: false, reason: 'List the bases that work.' };
+    const parts = text.split(/[\s,]+/).filter(Boolean);
+    if (!parts.every((part) => /^\d+$/.test(part))) {
+      return { correct: false, reason: 'List the bases as numbers, e.g. "9,11".' };
+    }
+    const given = [...new Set(parts.map(Number))].sort((a, b) => a - b).join(',');
+    return { correct: given === wanted };
+  };
+}
+
 /** Positive remainder, for negative inputs too. */
 export function mod(value, m) {
   return ((value % m) + m) % m;
@@ -78,6 +96,17 @@ export const MODULI = [6, 7, 8, 9, 10, 11];
 
 /** a, b and c come off digit cubes, so they are single digits. 0 and 1 are never a goal. */
 export const DIGITS = [2, 3, 4, 5, 6, 7, 8, 9];
+
+/**
+ * Two-digit numerals. Perfectly legal — they just cost two cubes instead of one — so they
+ * are real but less common, and belong mostly in the harder bands.
+ */
+export const WIDE_DIGITS = [10, 11, 12, 13, 14, 15];
+
+/** Draws a numeral, two-digit with the given probability. */
+export function numeral(rng, wideChance = 0) {
+  return rng() < wideChance ? rng.pick(WIDE_DIGITS) : rng.pick(DIGITS);
+}
 
 /** Picks a per-difficulty config, falling back to medium for unknown values. */
 export function byDifficulty(config, difficulty) {

@@ -17,10 +17,15 @@ export const VIABLE_PAIRS = DIGITS.flatMap((c) =>
 /** Past this the power is hopeless to expand by hand, which is what forces CRT. */
 const TOO_BIG_TO_EXPAND = 1e5;
 
+/**
+ * The work here is climbing the CRT ladder, and its length is set by c — you step up from
+ * m in multiples of k until the remainder mod c matches, so a bigger c means more steps
+ * and a bigger ck means a bigger lambda to find first.
+ */
 const CONFIG = {
-  easy: { reps: [1, 2] },
-  medium: { reps: [1, 4] },
-  hard: { reps: [2, 8] },
+  easy: { c: [2, 5], reps: [1, 2] },
+  medium: { c: [2, 9], reps: [1, 4] },
+  hard: { c: [7, 9], reps: [2, 8] },
 };
 
 /** The manual's additive ladder: 1 + 7 + 7 = 15. Collapses to a product when it gets long. */
@@ -33,9 +38,10 @@ function ladder(start, stepSize, total) {
 
 export function generate(difficulty, rng) {
   const cfg = byDifficulty(CONFIG, difficulty);
+  const pairs = VIABLE_PAIRS.filter(({ c }) => c >= cfg.c[0] && c <= cfg.c[1]);
   const { a, c, k, r } = rng.until(
     () => {
-      const { c, k } = rng.pick(VIABLE_PAIRS);
+      const { c, k } = rng.pick(pairs);
       // Pick the reduced exponent first, then build b around it, so the "too big to
       // expand" property is guaranteed rather than hoped for.
       return { a: rng.pick(DIGITS), c, k, r: rng.int(6, carmichael(c * k) - 1) };

@@ -12,7 +12,8 @@ import { parseAnswer } from '../js/lib/format.js';
 import { createRng } from '../js/lib/rng.js';
 import { TECHNIQUES } from '../js/techniques/index.js';
 import { BASES, exponentFor } from '../js/techniques/eg-bases.js';
-import { DIFFICULTIES, DIGITS, MODULI } from '../js/techniques/shared.js';
+import { reachableBases, REACH_BASES } from '../js/techniques/eg-reach.js';
+import { DIFFICULTIES, DIGITS, MODULI, WIDE_DIGITS } from '../js/techniques/shared.js';
 import { applyResult, levelChangeText, levelOf, levelProgress, START_LEVEL } from '../js/levels.js';
 import { SUPER_MODULI } from '../js/techniques/cycling-super.js';
 import { VIABLE_PAIRS } from '../js/techniques/cycling-alain.js';
@@ -250,6 +251,33 @@ for (const id of ['cycling-super', 'cycling-super-duper']) {
   }
 }
 
+// --- which bases reach which targets ---------------------------------------
+//
+// The drill decides reachability from a rule per base (a ≡ 1 mod 3, a odd, a square,
+// always). Check those rules the long way instead: actually count the divisors of B^n for
+// every n that could produce the target, and see whether the target ever turns up.
+
+console.log('reachable bases');
+for (const { base } of REACH_BASES) {
+  // Every x(B^n) that can be computed exactly. B^n is a prime power (or 2^n·5^n for 10),
+  // so trial division finds its factors immediately however large it is — the only limit
+  // is the safe integer range, past which B^n itself is no longer the number we mean.
+  const counted = new Set();
+  for (let n = 0; base ** n <= Number.MAX_SAFE_INTEGER; n++) counted.add(divisorCount(base ** n));
+  // x(B^n) increases with n, so below the largest value found, membership is definitive.
+  const certainTo = Math.max(...counted);
+  let mismatch = null;
+  for (let a = 2; a <= certainTo && !mismatch; a++) {
+    if (counted.has(a) !== reachableBases(a).includes(base)) {
+      mismatch = `base ${base}, target ${a}: rule says ${reachableBases(a).includes(base)}, counting says ${counted.has(a)}`;
+    }
+  }
+  check(`base ${base}'s rule matches counted divisors up to ${certainTo}`, !mismatch, mismatch ?? '');
+}
+check('base 11 reaches everything', Array.from({ length: 60 }, (_, i) => i + 2).every((a) => reachableBases(a).includes(11)));
+check('base 10 reaches only squares',
+  Array.from({ length: 60 }, (_, i) => i + 2).every((a) => reachableBases(a).includes(10) === Number.isInteger(Math.sqrt(a))));
+
 // --- per-technique verification --------------------------------------------
 
 const oracles = {
@@ -269,21 +297,39 @@ const oracles = {
   'eg-improved': ({ b, n, direction }) =>
     (direction === 'forward' ? Math.sqrt(divisorCountOfPow10(n)) : b - 1),
   'eg-bases': ({ base, a }) => exponentFor(base, a),
+  'eg-reach': ({ a }) => reachableBases(a),
 };
 
+/** Answers are usually numbers, but a set-valued one has to be compared as a set. */
+const sameAnswer = (actual, expected) =>
+  Array.isArray(actual) || Array.isArray(expected)
+    ? JSON.stringify(actual) === JSON.stringify(expected)
+    : actual === expected;
+
 /**
- * Realism constraints, checked on every generated problem: in Equations the modulus is
- * built from cubes, so a cycling goal can only ever be mod 6 through 11, and a, c and the
- * colour exponents come off single digit cubes.
+ * Realism constraints, checked on every generated problem. In Equations the modulus is
+ * built from cubes, so a cycling goal can only ever be mod 6 through 11. The other numerals
+ * are built from cubes too: one digit each, or two for the wider values, which cost an
+ * extra cube and so belong to the harder bands.
  */
+const NUMERALS = [...DIGITS, ...WIDE_DIGITS];
 const realism = {
-  'cycling-regular': ({ a, k }) => MODULI.includes(k) && DIGITS.includes(a),
-  'cycling-special': ({ a, c, k }) => MODULI.includes(k) && DIGITS.includes(a) && DIGITS.includes(c),
-  'cycling-super': ({ a, k }) => MODULI.includes(k) && DIGITS.includes(a),
+  'cycling-regular': ({ a, k }) => MODULI.includes(k) && NUMERALS.includes(a),
+  'cycling-special': ({ a, c, k }) => MODULI.includes(k) && NUMERALS.includes(a) && DIGITS.includes(c),
+  'cycling-super': ({ a, k }) => MODULI.includes(k) && NUMERALS.includes(a),
   'cycling-super-duper': ({ a, c, d, e, k }) =>
-    MODULI.includes(k) && DIGITS.includes(a) && [c, d, e].every((v) => v >= 2 && v <= 9),
-  'cycling-alain': ({ a, c, k }) => MODULI.includes(k) && DIGITS.includes(a) && DIGITS.includes(c),
+    MODULI.includes(k) && NUMERALS.includes(a) && [c, d, e].every((v) => v >= 2 && v <= 9),
+  'cycling-alain': ({ a, c, k }) => MODULI.includes(k) && NUMERALS.includes(a) && DIGITS.includes(c),
 };
+
+// Two-digit numerals are a harder-band thing, not the default: easy must stay single digit.
+for (const id of ['cycling-regular', 'cycling-special', 'cycling-super', 'cycling-super-duper']) {
+  const technique = TECHNIQUES.find((t) => t.id === id);
+  const rng = createRng(606);
+  let wideOnEasy = 0;
+  for (let i = 0; i < 300; i++) if (technique.generate('easy', rng).params.a > 9) wideOnEasy++;
+  equal(`${id} keeps easy to single-digit numerals`, wideOnEasy, 0);
+}
 
 /** Preconditions each generator promises to honour. */
 const invariants = {
@@ -296,6 +342,8 @@ const invariants = {
   'eg-first': ({ a }) => Number.isInteger(Math.sqrt(a)),
   'eg-second': ({ b }) => b % 2 === 1,
   'eg-third': ({ p, c }) => p % 2 === 1 && c >= 2,
+  // Base 11 reaches every integer, so a reachable-bases answer is never empty.
+  'eg-reach': ({ a }) => a >= 2 && reachableBases(a).includes(11),
 };
 
 console.log('technique generators (200 problems × 3 difficulties each)');
@@ -318,7 +366,7 @@ for (const technique of TECHNIQUES) {
       problems++;
 
       const expected = oracle(problem.params);
-      if (problem.answer !== expected) {
+      if (!sameAnswer(problem.answer, expected)) {
         failures.push(`${technique.id}/${difficulty}: answer ${problem.answer} but oracle says ${expected} for ${JSON.stringify(problem.params)}`);
         break;
       }
@@ -335,7 +383,11 @@ for (const technique of TECHNIQUES) {
         failures.push(`${technique.id}/${difficulty}: rejected its own canonical answer "${problem.canonicalText}"`);
         break;
       }
-      const nearMiss = problem.answer === null ? '0' : String(problem.answer + 1);
+      // A near miss for a set is the same set with one member dropped, or an extra added
+      // when there is only one; for a number it is one off.
+      const nearMiss = Array.isArray(problem.answer)
+        ? (problem.answer.length > 1 ? problem.answer.slice(1) : [...problem.answer, 8]).join(',')
+        : problem.answer === null ? '0' : String(problem.answer + 1);
       if (problem.check(nearMiss).correct && !(problem.params.ck && (problem.answer + 1) % problem.params.ck === problem.answer)) {
         failures.push(`${technique.id}/${difficulty}: accepted the near miss "${nearMiss}"`);
         break;
@@ -357,7 +409,9 @@ for (const technique of TECHNIQUES) {
         break;
       }
       const plain = (html) => html.replace(/<[^>]+>/g, '').replace(/&[a-z]+;/gi, ' ');
-      const finalAnswer = problem.answer === null ? 'Not representable' : String(problem.answer);
+      const finalAnswer = problem.answer === null
+        ? 'Not representable'
+        : Array.isArray(problem.answer) ? problem.answer.join(', ') : String(problem.answer);
       if (!steps.some((s) => s.lines.some((line) => plain(line).includes(finalAnswer)))) {
         failures.push(`${technique.id}/${difficulty}: the solution never states the answer ${finalAnswer}`);
         break;

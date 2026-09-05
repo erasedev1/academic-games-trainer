@@ -12,6 +12,7 @@ import egSecond from './eg-second.js';
 import egThird from './eg-third.js';
 import egImproved from './eg-improved.js';
 import egBases from './eg-bases.js';
+import egReach from './eg-reach.js';
 
 export const TECHNIQUES = [
   cyclingRegular,
@@ -26,6 +27,7 @@ export const TECHNIQUES = [
   egThird,
   egImproved,
   egBases,
+  egReach,
 ];
 
 export const FAMILIES = [

@@ -2,14 +2,17 @@
 
 import { carmichael, gcd, modPow, powerCycle, reduceExponent } from '../lib/math.js';
 import { lambda as lambdaHtml, mod as modHtml, pow } from '../lib/format.js';
-import { byDifficulty, DIGITS, intCheck, MODULI, step, tag } from './shared.js';
+import { byDifficulty, DIGITS, intCheck, MODULI, step, tag, WIDE_DIGITS } from './shared.js';
 
 // k is always a real Equations modulus, so difficulty is the cycle length and how far the
 // exponent has to be reduced.
+// Measured, not guessed: easy is short cycles you can write out in four lines; medium
+// opens up the long ones; hard adds three-digit exponents and two-digit bases, the two
+// things that actually cost time once the cycle itself is written.
 const CONFIG = {
-  easy: { b: [15, 40], maxPeriod: 4 },
-  medium: { b: [40, 150], maxPeriod: 10 },
-  hard: { b: [150, 999], maxPeriod: 10 },
+  easy: { b: [15, 40], maxPeriod: 4, wide: 0 },
+  medium: { b: [40, 150], maxPeriod: 10, wide: 0 },
+  hard: { b: [150, 999], maxPeriod: 10, wide: 0.4 },
 };
 
 /** Writes out the powers of a the way the manual does: previous residue × a, then reduced. */
@@ -31,20 +34,22 @@ function cycleLines(a, k, cycle) {
  * modulus first and the base second keeps the coverage even.
  */
 const OPTIONS = new Map();
-function optionsFor(maxPeriod) {
-  if (!OPTIONS.has(maxPeriod)) {
+function optionsFor(maxPeriod, wide) {
+  const key = `${maxPeriod}:${wide}`;
+  if (!OPTIONS.has(key)) {
+    const pool = wide ? [...DIGITS, ...WIDE_DIGITS] : DIGITS;
     const byModulus = MODULI.map((k) => [
       k,
-      DIGITS.filter((a) => gcd(a, k) === 1 && a % k !== 1 && powerCycle(a, k).period <= maxPeriod),
+      pool.filter((a) => gcd(a, k) === 1 && a % k !== 1 && powerCycle(a, k).period <= maxPeriod),
     ]).filter(([, bases]) => bases.length);
-    OPTIONS.set(maxPeriod, byModulus);
+    OPTIONS.set(key, byModulus);
   }
-  return OPTIONS.get(maxPeriod);
+  return OPTIONS.get(key);
 }
 
 export function generate(difficulty, rng) {
   const cfg = byDifficulty(CONFIG, difficulty);
-  const [k, bases] = rng.pick(optionsFor(cfg.maxPeriod));
+  const [k, bases] = rng.pick(optionsFor(cfg.maxPeriod, rng() < cfg.wide));
   const a = rng.pick(bases);
   const cycle = powerCycle(a, k);
   const b = rng.int(cfg.b[0], cfg.b[1]);

@@ -60,13 +60,21 @@ export function getRecord(data, techniqueId, difficulty) {
   return data.techniques[recordKey(techniqueId, difficulty)] ?? blankRecord();
 }
 
-/** Keeps the last N solve times — enough for a stable median without unbounded growth. */
-function fold(record, correct, elapsedMs, keep) {
+/**
+ * Keeps the last N solve times — enough for a stable median without unbounded growth.
+ *
+ * A solve you read the walkthrough for still counts towards accuracy, but its time is
+ * meaningless, so it never lands in the times or sets a personal best.
+ */
+function fold(record, correct, elapsedMs, keep, revealed) {
   record.attempts++;
+  if (revealed) record.revealed = (record.revealed ?? 0) + 1;
   if (correct) {
     record.correct++;
-    record.times = [...record.times, elapsedMs].slice(-keep);
-    record.best = record.best === null ? elapsedMs : Math.min(record.best, elapsedMs);
+    if (!revealed) {
+      record.times = [...record.times, elapsedMs].slice(-keep);
+      record.best = record.best === null ? elapsedMs : Math.min(record.best, elapsedMs);
+    }
   }
   return record;
 }
@@ -75,7 +83,7 @@ function fold(record, correct, elapsedMs, keep) {
  * Folds one answered problem into the stats, against both its technique and each of the
  * specific things it tested — the tags are what the weak-point analysis reads.
  */
-export function recordAttempt({ techniqueId, difficulty, correct, elapsedMs, tags = [] }) {
+export function recordAttempt({ techniqueId, difficulty, correct, elapsedMs, tags = [], revealed = false }) {
   const data = readRaw();
   const key = recordKey(techniqueId, difficulty);
   const record = data.techniques[key] ?? blankRecord();
@@ -85,10 +93,10 @@ export function recordAttempt({ techniqueId, difficulty, correct, elapsedMs, tag
     // The label is stored alongside so the stats page can name a tag without having to
     // regenerate a problem that carries it.
     tagRecord.label = label;
-    data.tags[`${techniqueId}|${tagName}`] = fold(tagRecord, correct, elapsedMs, 20);
+    data.tags[`${techniqueId}|${tagName}`] = fold(tagRecord, correct, elapsedMs, 20, revealed);
   }
 
-  fold(record, correct, elapsedMs, 200);
+  fold(record, correct, elapsedMs, 200, revealed);
   if (correct) {
     record.streak++;
     record.longestStreak = Math.max(record.longestStreak, record.streak);

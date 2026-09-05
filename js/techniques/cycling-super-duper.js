@@ -1,14 +1,17 @@
 // Super Duper Cycling — a^(b^c^d^e) mod k, read as a^(b^(c·d·e)).
 
 import { mod as modHtml, tower } from '../lib/format.js';
-import { byDifficulty, DIGITS, intCheck, step, tag } from './shared.js';
-import { numbered, pickBase, pickExponent, towerAnswer, towerSteps, TRIVIAL_SHARE } from './cycling-super.js';
+import { byDifficulty, DIGITS, intCheck, step, tag, WIDE_DIGITS } from './shared.js';
+import {
+  numbered, pickBase, pickExponent, SUPER_MODULI, towerAnswer, towerSteps, TRIVIAL_SHARE,
+} from './cycling-super.js';
 
-// c, d and e are colour exponents, so they are single digits like everything else.
+// c, d and e are colour exponents, so they are single digits like everything else. As with
+// super cycling the ladder is the modulus, since cde collapses mod λ(λ(k)) regardless.
 const CONFIG = {
-  easy: { b: DIGITS, cde: [2, 6] },
-  medium: { b: [...DIGITS, 11, 12], cde: [2, 9] },
-  hard: { b: [...DIGITS, 11, 12, 13], cde: [4, 9] },
+  easy: { moduli: [7, 9, 10], b: DIGITS, cde: [2, 6] },
+  medium: { moduli: SUPER_MODULI, b: [...DIGITS, 11, 12], cde: [2, 9] },
+  hard: { moduli: [11], b: [...DIGITS, ...WIDE_DIGITS], cde: [4, 9] },
 };
 
 /**
@@ -33,7 +36,7 @@ function pickTriple(rng, k, b, range, wantTrivial) {
 
 export function generate(difficulty, rng) {
   const cfg = byDifficulty(CONFIG, difficulty);
-  const { a, b, k } = pickBase(rng, cfg.b);
+  const { a, b, k } = pickBase(rng, cfg.b, cfg.moduli);
   const [c, d, e] = pickTriple(rng, k, b, cfg.cde, rng() < TRIVIAL_SHARE);
   const f = c * d * e;
   const answer = towerAnswer({ a, b, k, exponent: f });

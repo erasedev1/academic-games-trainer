@@ -2,28 +2,52 @@
 
 import { carmichael, gcd, modPow } from '../lib/math.js';
 import { frac, lambda as lambdaHtml, mod as modHtml, pow } from '../lib/format.js';
-import { byDifficulty, congruentNumeratorCheck, DIGITS, MODULI, step, tag } from './shared.js';
+import { byDifficulty, congruentNumeratorCheck, DIGITS, MODULI, step, tag, WIDE_DIGITS } from './shared.js';
 
+/**
+ * What actually makes one of these harder is the size of ck — the lambda you have to work
+ * out — and whether the power lands above ck and so needs reducing. The exponent b does
+ * not, since it is reduced away immediately; tuning on b alone left all three levels
+ * effectively identical.
+ */
 const CONFIG = {
-  easy: { c: [2, 3, 5, 7], r: [2, 3], reps: [1, 3] },
-  medium: { c: DIGITS, r: [2, 3], reps: [1, 5] },
-  hard: { c: DIGITS, r: [2, 4], reps: [2, 8] },
+  easy: { ck: [0, 30], r: [2, 3], reps: [1, 3], reduces: false, wide: 0 },
+  medium: { ck: [0, 63], r: [2, 3], reps: [1, 5], reduces: null, wide: 0 },
+  hard: { ck: [55, 99], r: [2, 4], reps: [2, 8], reduces: true, wide: 0.3 },
 };
+
+/** Every (a, c, k, r) this band allows, so a draw is even and always in band. */
+const COMBOS = new Map();
+function combosFor(difficulty) {
+  if (!COMBOS.has(difficulty)) {
+    const cfg = byDifficulty(CONFIG, difficulty);
+    const numerals = cfg.wide ? [...DIGITS, ...WIDE_DIGITS] : DIGITS;
+    const out = [];
+    for (const c of DIGITS) {
+      for (const k of MODULI) {
+        const ck = c * k;
+        if (gcd(c, k) !== 1 || c === k) continue;
+        if (ck < cfg.ck[0] || ck > cfg.ck[1]) continue;
+        const n = carmichael(ck);
+        for (const a of numerals) {
+          if (gcd(a, ck) !== 1 || a % k <= 1) continue;
+          for (let r = cfg.r[0]; r <= cfg.r[1]; r++) {
+            if (n <= r || a ** r > 4000) continue;
+            // Whether the numerator has to be brought back under ck is the second axis.
+            if (cfg.reduces !== null && (a ** r > ck) !== cfg.reduces) continue;
+            out.push({ a, c, k, r });
+          }
+        }
+      }
+    }
+    COMBOS.set(difficulty, out);
+  }
+  return COMBOS.get(difficulty);
+}
 
 export function generate(difficulty, rng) {
   const cfg = byDifficulty(CONFIG, difficulty);
-  const { a, c, k, r } = rng.until(
-    () => ({
-      a: rng.pick(DIGITS),
-      c: rng.pick(cfg.c),
-      k: rng.pick(MODULI),
-      r: rng.int(cfg.r[0], cfg.r[1]),
-    }),
-    ({ a, c, k, r }) =>
-      gcd(c, k) === 1 && c !== k && gcd(a, c * k) === 1 && a % k > 1 &&
-      // Keep a^r small enough to work out by hand, the way the manual's examples do.
-      a ** r <= 4000 && carmichael(c * k) > r,
-  );
+  const { a, c, k, r } = rng.pick(combosFor(difficulty));
   const ck = c * k;
   const n = carmichael(ck);
   const b = r + n * rng.int(cfg.reps[0], cfg.reps[1]);
